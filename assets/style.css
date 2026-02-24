@@ -1,0 +1,24 @@
+body { background-color: #f7f7f7; font-family: 'Segoe UI', sans-serif; }
+
+.sidebar .sidebar-content { background-color: #222831; color: #ffffff; }
+
+h1, h2, h3 { color: #393e46; }
+
+.metric-container {
+    background-color: #eeeeee;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+}
+
+.dataframe, .stDataFrame { border-radius: 5px; border: 1px solid #ccc; }
+
+.stButton>button {
+    background-color: #00adb5;
+    color: white;
+    border-radius: 5px;
+    padding: 8px 15px;
+}
+.stButton>button:hover { background-color: #028a95; }
+
+.stWarning { background-color: #ffbaba; color: #d8000c; }
