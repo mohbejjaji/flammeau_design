@@ -1,6 +1,5 @@
 # data/product_catalog.py
 
-# Catalogue des produits Flammeau Design
 PRODUCT_CATALOG = {
     "electrique": {
         "name": "Cheminée électrique",
@@ -63,7 +62,7 @@ PRODUCT_CATALOG = {
                     {"ref": "FD 001 BR", "name": "FD 001 BR"},
                     {"ref": "FD 002 BR", "name": "FD 002 BR"},
                     {"ref": "FD 003 BR", "name": "FD 003 BR"},
-                    {"ref": "FD 004 BR", "name": "D 004 BR"},
+                    {"ref": "FD 004 BR", "name": "FD 004 BR"},
                     {"ref": "FD 005 BR", "name": "FD 005 BR"},
                     {"ref": "FD 006 BR", "name": "FD 006 BR"}
                 ]
@@ -97,9 +96,11 @@ PRODUCT_CATALOG = {
     }
 }
 
+
 def get_categories():
     """Retourne la liste des catégories"""
     return list(PRODUCT_CATALOG.keys())
+
 
 def get_subtypes(category):
     """Retourne la liste des sous-catégories pour une catégorie donnée"""
@@ -107,11 +108,13 @@ def get_subtypes(category):
         return list(PRODUCT_CATALOG[category]["subtypes"].keys())
     return []
 
+
 def get_products_by_subtype(category, subtype):
     """Retourne la liste des produits pour une catégorie et sous-catégorie données"""
     if category in PRODUCT_CATALOG and subtype in PRODUCT_CATALOG[category]["subtypes"]:
         return PRODUCT_CATALOG[category]["subtypes"][subtype]["products"]
     return []
+
 
 def get_all_products_list():
     """Retourne tous les produits du catalogue"""
@@ -128,3 +131,42 @@ def get_all_products_list():
                     "name": product["name"]
                 })
     return all_products
+
+
+def get_product_by_ref(reference):
+    """Retourne les informations d'un produit à partir de sa référence"""
+    for category, cat_data in PRODUCT_CATALOG.items():
+        for subtype, sub_data in cat_data["subtypes"].items():
+            for product in sub_data["products"]:
+                if product["ref"] == reference:
+                    return {
+                        "name": product["name"],
+                        "category": category,
+                        "subtype": subtype,
+                        "category_name": cat_data["name"],
+                        "subtype_name": sub_data["name"],
+                        "ref": product["ref"]
+                    }
+    return None
+
+
+def get_product_info(reference):
+    """Alias de get_product_by_ref pour compatibilité"""
+    return get_product_by_ref(reference)
+
+
+def get_all_references():
+    """Retourne toutes les références disponibles avec leurs informations"""
+    references = []
+    for category, cat_data in PRODUCT_CATALOG.items():
+        for subtype, sub_data in cat_data["subtypes"].items():
+            for product in sub_data["products"]:
+                references.append({
+                    "ref": product["ref"],
+                    "name": product["name"],
+                    "category": cat_data["name"],
+                    "subtype": sub_data["name"],
+                    "category_key": category,
+                    "subtype_key": subtype
+                })
+    return references

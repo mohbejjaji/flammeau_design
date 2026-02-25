@@ -29,6 +29,8 @@ from ui.sales_products import sales_products_page
 from ui.sales_services import sales_services_page
 from ui.quotes import quotes_page
 from ui.accessories import accessories_page
+from ui.arrivals import arrivals_page
+from ui.stock_management import stock_management_page
 
 # Load custom CSS
 try:
@@ -54,10 +56,11 @@ with st.sidebar:
         "Navigation",
         [
             "📊 Dashboard",
-            "🛒 Produits",
-            "📦 Arrivages",
-            "🔥 Vente Cheminées",        # Changé
-            "🪵 Vente Accessoires",       # Nouveau
+            "📦 Arrivage Chine",
+            "📊 Gestion Stock",  # Nouvelle page
+            "💰 Gestion des Prix",
+            "🔥 Vente Cheminées",
+            "🪵 Vente Accessoires",
             "🔧 Vente Prestations",
             "📄 Devis",
             "📈 Analytics"
@@ -67,10 +70,10 @@ with st.sidebar:
 # Page routing
 if menu == "📊 Dashboard":
     dashboard_page()
-elif menu == "🛒 Produits":
+elif menu == "📦 Arrivage Chine":
+    arrivals_page()  # Nouvelle page
+elif menu == "💰 Gestion des Prix":
     products_page()
-elif menu == "📦 Arrivages":
-    shipments_page()
 elif menu == "🔥 Vente Cheminées":
     sales_products_page()
 elif menu == "🪵 Vente Accessoires":
@@ -81,3 +84,5 @@ elif menu == "📈 Analytics":
     analytics_page()
 elif menu == "📄 Devis":
     quotes_page()
+elif menu == "📊 Gestion Stock":
+    stock_management_page()

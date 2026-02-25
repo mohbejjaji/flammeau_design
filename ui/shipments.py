@@ -143,24 +143,26 @@ def shipments_page():
             
             with col_b1:
                 if st.button("🗑️ Vider le panier", use_container_width=True):
+                    # ✅ Uniquement vider la session Streamlit, pas de DB
                     st.session_state.shipment_items = []
                     st.rerun()
             
             with col_b2:
                 if st.button("✅ Valider l'arrivage", type="primary", use_container_width=True):
                     try:
-                        shipment = create_shipment(
+                        # ✅ Utiliser le dictionnaire retourné, pas l'objet
+                        shipment_data = create_shipment(
                             items=st.session_state.shipment_items,
                             transport_total=transport_total,
                             customs_total=customs_total,
                             note=note
                         )
                         
-                        st.success(f"✅ Arrivage enregistré avec succès! (ID: {shipment.id})")
+                        st.success(f"✅ Arrivage #{shipment_data['id']} enregistré avec succès!")
                         
-                        # Afficher le résumé
+                        # Afficher le résumé avec les données du dictionnaire
                         with st.expander("📋 Détail de l'arrivage", expanded=True):
-                            st.write(f"**Date:** {shipment.date.strftime('%d/%m/%Y')}")
+                            st.write(f"**Date:** {shipment_data['date'].strftime('%d/%m/%Y')}")
                             st.write(f"**Total achat:** {total_achat:,.2f} MAD")
                             st.write(f"**Frais transport:** {transport_total:,.2f} MAD")
                             st.write(f"**Frais douane:** {customs_total:,.2f} MAD")
@@ -189,28 +191,29 @@ def shipments_page():
         else:
             for shipment in shipments:
                 with st.expander(f"📦 Arrivage #{shipment.id} - {shipment.date.strftime('%d/%m/%Y')}"):
-                    # Récupérer les détails
+                    # ✅ Utiliser la fonction qui retourne des dictionnaires
                     details = get_shipment_details(shipment.id)
                     
                     if details:
                         col_h1, col_h2, col_h3 = st.columns(3)
                         
                         with col_h1:
-                            st.metric("Total achat", f"{sum(i.quantity * i.unit_purchase_price for i in details['items']):,.0f} MAD")
+                            total_achat = sum(i['quantity'] * i['unit_purchase_price'] for i in details['items'])
+                            st.metric("Total achat", f"{total_achat:,.0f} MAD")
                         
                         with col_h2:
-                            st.metric("Frais transport", f"{shipment.transport_cost_total:,.0f} MAD")
+                            st.metric("Frais transport", f"{details['shipment']['transport_cost_total']:,.0f} MAD")
                         
                         with col_h3:
-                            st.metric("Frais douane", f"{shipment.customs_cost_total:,.0f} MAD")
+                            st.metric("Frais douane", f"{details['shipment']['customs_cost_total']:,.0f} MAD")
                         
-                        if shipment.note:
-                            st.caption(f"Note: {shipment.note}")
+                        if details['shipment']['note']:
+                            st.caption(f"Note: {details['shipment']['note']}")
                         
                         # Afficher les produits
                         st.write("**Produits reçus:**")
                         for item in details['items']:
-                            st.write(f"  • {item.product.name}: {item.quantity} unités à {item.unit_purchase_price:,.0f} MAD")
+                            st.write(f"  • {item['product_name']}: {item['quantity']} unités à {item['unit_purchase_price']:,.0f} MAD")
     
     with tab3:
         st.subheader("📊 Statistiques des arrivages")

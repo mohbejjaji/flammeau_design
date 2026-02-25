@@ -1,6 +1,8 @@
 import streamlit as st
 from services.reporting_service import kpi_summary, sales_dataframe
 from config import FIXED_CHARGES
+from services.stock_service import get_current_stock, get_low_stock_products
+
 
 def dashboard_page():
     st.header("Dashboard Stratégique")
@@ -29,3 +31,26 @@ def dashboard_page():
     with st.expander("Détail des charges fixes"):
         for charge, montant in FIXED_CHARGES.items():
             st.write(f"{charge}: {montant} MAD")
+    
+    st.subheader("📦 Aperçu du stock")
+    
+    stock = get_current_stock()
+    
+    if stock:
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+        
+        total_value = sum(s['stock_value'] for s in stock)
+        total_quantity = sum(s['quantity'] for s in stock)
+        low_stock = len(get_low_stock_products())
+        
+        with col_s1:
+            st.metric("Valeur totale stock", f"{total_value:,.0f} MAD")
+        with col_s2:
+            st.metric("Unités en stock", total_quantity)
+        with col_s3:
+            st.metric("Produits différents", len(stock))
+        with col_s4:
+            st.metric("Alertes stock", low_stock, 
+                     delta_color="inverse" if low_stock > 0 else "off")
+    else:
+        st.info("Aucun stock disponible")
