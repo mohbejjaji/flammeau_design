@@ -31,6 +31,7 @@ from ui.quotes import quotes_page
 from ui.accessories import accessories_page
 from ui.arrivals import arrivals_page
 from ui.stock_management import stock_management_page
+from ui.sales_history import sales_history_page
 
 # Load custom CSS
 try:
@@ -62,6 +63,7 @@ with st.sidebar:
             "🔥 Vente Cheminées",
             "🪵 Vente Accessoires",
             "🔧 Vente Prestations",
+            "📜 Historique Ventes",
             "📄 Devis",
             "📈 Analytics"
         ]
@@ -86,3 +88,5 @@ elif menu == "📄 Devis":
     quotes_page()
 elif menu == "📊 Gestion Stock":
     stock_management_page()
+elif menu == "📜 Historique Ventes":
+    sales_history_page()
