@@ -32,6 +32,7 @@ from ui.accessories import accessories_page
 from ui.arrivals import arrivals_page
 from ui.stock_management import stock_management_page
 from ui.sales_history import sales_history_page
+from ui.expenses import expenses_page
 
 # Load custom CSS
 try:
@@ -57,6 +58,7 @@ with st.sidebar:
         "Navigation",
         [
             "📊 Dashboard",
+            "💰 Charges",
             "📦 Arrivage Chine",
             "📊 Gestion Stock",  # Nouvelle page
             "💰 Gestion des Prix",
@@ -90,3 +92,5 @@ elif menu == "📊 Gestion Stock":
     stock_management_page()
 elif menu == "📜 Historique Ventes":
     sales_history_page()
+elif menu == "💰 Charges":
+    expenses_page()
