@@ -10,6 +10,7 @@ from services.product_service import get_products
 import base64
 import os
 
+
 def quotes_page():
     st.header("📄 Gestion des Devis")
     
@@ -173,7 +174,7 @@ def quotes_page():
             if search:
                 filtered_quotes = [q for q in filtered_quotes if search.lower() in q.customer_name.lower()]
             
-            # Afficher les devis
+            # ✅ La boucle for DOIT contenir TOUT l'affichage de chaque devis
             for quote in filtered_quotes:
                 with st.expander(f"📄 {quote.quote_number} - {quote.customer_name} - {quote.date.strftime('%d/%m/%Y')} - {quote.status.upper()}"):
                     col_info1, col_info2, col_info3 = st.columns(3)
@@ -189,27 +190,36 @@ def quotes_page():
                     with col_info3:
                         st.metric("Montant TTC", f"{quote.total_amount * 1.20:,.2f} MAD")
                     
-                    # Détails des articles
+                    # Articles
                     st.write("**Articles:**")
-                    for item in quote.items:
+                    for item in quote.quote_items:
                         st.write(f"• {item.description} x{item.quantity} = {item.quantity * item.unit_price:,.2f} MAD")
                     
                     if quote.notes:
                         st.write(f"**Notes:** {quote.notes}")
                     
-                    # Boutons d'action
+                    # ✅ Les boutons DOIVENT être à l'INTÉRIEUR de l'expander
                     col_act1, col_act2, col_act3, col_act4, col_act5 = st.columns(5)
                     
                     with col_act1:
                         if st.button("📥 PDF", key=f"pdf_{quote.id}"):
-                            pdf_path = generate_quote_pdf(quote.id)
-                            if pdf_path and os.path.exists(pdf_path):
-                                with open(pdf_path, "rb") as f:
-                                    pdf_bytes = f.read()
-                                b64 = base64.b64encode(pdf_bytes).decode()
-                                href = f'<a href="data:application/octet-stream;base64,{b64}" download="{os.path.basename(pdf_path)}">Télécharger le PDF</a>'
-                                st.markdown(href, unsafe_allow_html=True)
-                                st.success("PDF généré!")
+                            with st.spinner("Génération du PDF en cours..."):
+                                pdf_path = generate_quote_pdf(quote.id)
+                                if pdf_path and os.path.exists(pdf_path):
+                                    with open(pdf_path, "rb") as f:
+                                        pdf_bytes = f.read()
+                                    
+                                    st.download_button(
+                                        label="📥 Télécharger le PDF",
+                                        data=pdf_bytes,
+                                        file_name=os.path.basename(pdf_path),
+                                        mime="application/pdf",
+                                        key=f"download_{quote.id}"
+                                    )
+                                    
+                                    st.success("✅ PDF généré avec succès!")
+                                else:
+                                    st.error("❌ Erreur lors de la génération du PDF")
                     
                     with col_act2:
                         new_status = st.selectbox(
@@ -224,12 +234,18 @@ def quotes_page():
                     
                     with col_act3:
                         if st.button("💰 Convertir en vente", key=f"convert_{quote.id}"):
-                            # convert_quote_to_sale(quote.id)
-                            st.info("Fonctionnalité à venir")
+                            with st.spinner("Conversion en cours..."):
+                                success, message = convert_quote_to_sale(quote.id)
+                                if success:
+                                    st.success(f"✅ {message}")
+                                    st.balloons()
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {message}")
                     
                     with col_act4:
                         if st.button("✉️ Envoyer par email", key=f"email_{quote.id}"):
-                            st.info("Fonctionnalité à venir")
+                            st.info("Fonctionnalité d'envoi par email à venir")
                     
                     with col_act5:
                         if st.button("🗑️ Supprimer", key=f"del_{quote.id}"):

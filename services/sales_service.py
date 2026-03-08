@@ -7,7 +7,8 @@ from datetime import date
 def create_product_sale(customer_name, items, seller_name="Moi", commission=0, 
                         payment_method="Espèces", customer_phone="", customer_email=""):
     """
-    Crée une vente de produits en utilisant la méthode FIFO (premier entré, premier sorti)
+    Crée une vente de produits avec gestion des remises
+    items: liste de dict avec product_id, quantity, unit_price (déjà après remise)
     """
     db = SessionLocal()
     
@@ -44,6 +45,9 @@ def create_product_sale(customer_name, items, seller_name="Moi", commission=0,
             if quantity_needed > product.stock_quantity:
                 raise Exception(f"Stock insuffisant pour {product.name}. Disponible: {product.stock_quantity}")
             
+            # ✅ Utilise directement le prix fourni (déjà après remise)
+            unit_price = item["unit_price"]
+            
             # Récupérer les lots de stock disponibles (FIFO)
             lots = get_stock_lots_by_product(product.id)
             
@@ -74,13 +78,13 @@ def create_product_sale(customer_name, items, seller_name="Moi", commission=0,
                 sale_id=sale.id,
                 product_id=product.id,
                 quantity=item["quantity"],
-                unit_price=item["unit_price"],
+                unit_price=unit_price,  # ✅ Prix après remise
                 unit_cost_snapshot=item_cost / item["quantity"] if item["quantity"] > 0 else 0
             )
             db.add(sale_item)
             
             # Mettre à jour les totaux
-            total_revenue += item["quantity"] * item["unit_price"]
+            total_revenue += item["quantity"] * unit_price
             total_cost += item_cost
             
             # Mettre à jour le stock total du produit

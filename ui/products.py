@@ -40,13 +40,13 @@ def products_page():
                 st.caption(f"≈ ${product.purchase_price / USD_TO_MAD_RATE:,.0f}")
             
             with col4:
-                # Prix suggéré (coût réel + marge 30% + TVA)
+                # Prix suggéré (coût réel + marge 50% + TVA)
                 if hasattr(product, 'average_cost') and product.average_cost > 0:
                     cost = product.average_cost
                 else:
                     cost = product.purchase_price
                 
-                suggested = cost * 1.3 * 1.2
+                suggested = cost * 1.5 * 1.2
                 st.metric("Suggéré", f"{suggested:,.0f} MAD")
             
             with col5:
