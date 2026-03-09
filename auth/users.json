@@ -1,0 +1,17 @@
+{
+    "admin": {
+        "password_hash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+        "name": "admin",
+        "role": "administrateur"
+    },
+    "kamal": {
+        "password_hash": "51149f6fea1a3179b364f1994e06e4d4f0c4e9d9c7dbaff342a2e59954e07de3",
+        "name": "Kamal",
+        "role": "vendeur"
+    },
+    "youssef": {
+        "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+        "name": "Youssef",
+        "role": "vendeur"
+    }
+}

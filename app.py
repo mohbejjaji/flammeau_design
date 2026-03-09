@@ -1,14 +1,13 @@
 import sys
 import os
-# Ajouter le chemin absolu du dossier courant au PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import streamlit as st
 from core.database import engine, Base
 import core.models
+from auth.auth import check_authentication  # ✅ Import de l'authentification
 
-
-# Page configuration
+# Configuration de la page
 st.set_page_config(
     page_title="Flammeau Design PRO",
     page_icon="🔥",
@@ -16,11 +15,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize database
+# ✅ Vérifier l'authentification AVANT tout le reste
+if not check_authentication():
+    st.stop()  # Arrête l'exécution si non authentifié
+
+# Initialisation de la base de données
 Base.metadata.create_all(bind=engine)
 
-# Import UI components
-from ui.layout import main_layout
+# Import des pages (après authentification)
 from ui.dashboard import dashboard_page
 from ui.products import products_page
 from ui.shipments import shipments_page
@@ -34,23 +36,19 @@ from ui.stock_management import stock_management_page
 from ui.sales_history import sales_history_page
 from ui.expenses import expenses_page
 
-# Load custom CSS
+# CSS
 try:
     with open("assets/style.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 except FileNotFoundError:
-    st.warning("Style sheet not found. Using default styling.")
+    pass
 
-# Main layout
-main_layout("Flammeau Design PRO")
-
-# Sidebar navigation
+# Sidebar (visible seulement si authentifié)
 with st.sidebar:
     try:
-        st.image("assets/logo.PNG", width=200)  # Correction du chemin du logo
-    except Exception as e:
+        st.image("assets/logo.PNG", width=200)
+    except:
         st.markdown("# 🔥 Flammeau Design PRO")
-        st.error(f"Logo non trouvé: {e}")
     
     st.markdown("---")
     
@@ -60,7 +58,7 @@ with st.sidebar:
             "📊 Dashboard",
             "💰 Charges",
             "📦 Arrivage Chine",
-            "📊 Gestion Stock",  # Nouvelle page
+            "📊 Gestion Stock",
             "💰 Gestion des Prix",
             "🔥 Vente Cheminées",
             "🪵 Vente Accessoires",
@@ -71,11 +69,11 @@ with st.sidebar:
         ]
     )
 
-# Page routing
+# Routing (inchangé)
 if menu == "📊 Dashboard":
     dashboard_page()
 elif menu == "📦 Arrivage Chine":
-    arrivals_page()  # Nouvelle page
+    arrivals_page()
 elif menu == "💰 Gestion des Prix":
     products_page()
 elif menu == "🔥 Vente Cheminées":
