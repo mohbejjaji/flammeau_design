@@ -124,10 +124,30 @@ class SaleService(Base):
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
     unit_cost = Column(Float, nullable=False)
+    
+    # Nouveaux champs pour les acomptes
+    deposit_amount = Column(Float, default=0)  # Montant de l'acompte
+    deposit_date = Column(Date)                 # Date de l'acompte
+    deposit_payment_method = Column(String)     # Mode de paiement de l'acompte
+    balance_amount = Column(Float, default=0)   # Montant restant
+    balance_date = Column(Date)                  # Date du solde
+    balance_payment_method = Column(String)      # Mode de paiement du solde
+    payment_status = Column(String, default="en_attente")  # en_attente, acompte, payé
+    
     created_at = Column(DateTime, default=datetime.now)
     
     # Relation
     sale = relationship("Sale", back_populates="service_items")
+    
+    @property
+    def total_amount(self):
+        """Montant total TTC de la prestation"""
+        return self.quantity * self.unit_price
+    
+    @property
+    def remaining_amount(self):
+        """Montant restant à payer"""
+        return self.total_amount - self.deposit_amount
 
 
 class ShipmentItem(Base):
@@ -189,3 +209,20 @@ class Expense(Base):
     amount = Column(Float, nullable=False)
     description = Column(String)
     created_at = Column(DateTime, default=datetime.now)
+
+class VariableExpense(Base):
+    __tablename__ = "variable_expenses"
+    
+    id = Column(Integer, primary_key=True)
+    date = Column(Date, nullable=False)
+    type = Column(String, nullable=False)  # déplacement, gasoil, menuiserie, soudure, etc.
+    amount = Column(Float, nullable=False)
+    description = Column(String)
+    vehicle = Column(String, nullable=True)  # Pour le gasoil, quel véhicule
+    project = Column(String, nullable=True)  # Pour menuiserie/soudure, lié à quel projet
+    supplier = Column(String, nullable=True)  # Fournisseur pour les prestations
+    payment_method = Column(String, default="Espèces")
+    created_at = Column(DateTime, default=datetime.now)
+    
+    def __repr__(self):
+        return f"<VariableExpense {self.type} - {self.amount} MAD>"
