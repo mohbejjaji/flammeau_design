@@ -1,37 +1,50 @@
+# 1. Modules natifs Python
+import os
+import base64
+from datetime import datetime, timedelta
+
+# 2. Bibliothèques tierces (installées via pip)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+
+# 3. Modules locaux (ton propre code)
 from services.sales_history_service import (
-    get_sales_history, get_sale_details, generate_ticket_pdf,
-    get_sales_stats, export_sales_to_excel
+    get_sales_history, 
+    get_sale_details, 
+    generate_ticket_pdf,
+    get_sales_stats, 
+    export_sales_to_excel
 )
-import base64
-import os
 
 
 def sales_history_page():
-    st.header("📜 Historique des ventes")
+    st.header("📜 Historique et Analyse des Ventes")
     
-    # Onglets
-    tab1, tab2, tab3 = st.tabs(["📋 Liste des ventes", "📊 Statistiques", "📤 Export"])
+    # --- Onglets ---
+    tab1, tab2, tab3 = st.tabs(["📋 Registre des ventes", "📊 Tableau de bord", "📤 Export Comptable"])
     
+    # ==========================================
+    # ONGLET 1 : REGISTRE DES VENTES
+    # ==========================================
     with tab1:
-        # Filtres
-        col_f1, col_f2, col_f3 = st.columns(3)
+        st.subheader("Filtres de recherche")
+        
+        # Filtres compacts
+        col_f1, col_f2, col_f3 = st.columns([2, 1.5, 1.5], vertical_alignment="bottom")
         
         with col_f1:
             period = st.selectbox(
-                "Période",
-                ["Aujourd'hui", "Cette semaine", "Ce mois", "Ce trimestre", "Cette année", "Personnalisé"]
+                "Période prédéfinie",
+                ["Aujourd'hui", "Cette semaine", "Ce mois", "Ce trimestre", "Cette année", "Personnalisé"],
+                label_visibility="collapsed"
             )
         
         # Calculer les dates selon la période
         today = datetime.now().date()
         
         if period == "Aujourd'hui":
-            start_date = today
-            end_date = today
+            start_date, end_date = today, today
         elif period == "Cette semaine":
             start_date = today - timedelta(days=today.weekday())
             end_date = today
@@ -45,114 +58,96 @@ def sales_history_page():
         elif period == "Cette année":
             start_date = today.replace(month=1, day=1)
             end_date = today
-        else:
+        else: # Personnalisé
             with col_f2:
                 start_date = st.date_input("Date début", today - timedelta(days=30))
             with col_f3:
                 end_date = st.date_input("Date fin", today)
         
+        st.markdown("---")
+        
         # Récupérer les ventes
         sales = get_sales_history(start_date, end_date)
         
         if not sales:
-            st.info("Aucune vente sur cette période")
+            st.info("ℹ️ Aucune transaction trouvée pour cette période.")
         else:
-            # Métriques rapides
+            # --- Métriques rapides (KPIs) ---
             total_ca = sum(s['revenue'] for s in sales)
             total_profit = sum(s['profit'] for s in sales)
             total_ventes = len(sales)
+            marge_moyenne = (total_profit / total_ca * 100) if total_ca > 0 else 0
             
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            with col_m1:
-                st.metric("Nombre de ventes", total_ventes)
-            with col_m2:
-                st.metric("CA total", f"{total_ca:,.0f} MAD")
-            with col_m3:
-                st.metric("Bénéfice total", f"{total_profit:,.0f} MAD")
-            with col_m4:
-                marge_moyenne = (total_profit / total_ca * 100) if total_ca > 0 else 0
-                st.metric("Marge moyenne", f"{marge_moyenne:.1f}%")
+            col_m1.metric("Nombre de ventes", total_ventes)
+            col_m2.metric("CA Total HT", f"{total_ca:,.2f} MAD")
+            col_m3.metric("Bénéfice Total", f"{total_profit:,.2f} MAD")
+            col_m4.metric("Marge Moyenne", f"{marge_moyenne:.1f} %")
             
-            # Liste des ventes
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- Liste des ventes (Expanders stylisés) ---
             for sale in sales:
-                with st.expander(f"🪙 Vente #{sale['id']} - {sale['date']} - {sale['customer']} - {sale['revenue'] * 1.20:,.0f} MAD TTC"):
-                    col_d1, col_d2, col_d3 = st.columns(3)
-                    
-                    with col_d1:
-                        st.write(f"**Client:** {sale['customer']}")
-                        st.write(f"**Vendeur:** {sale['seller']}")
-                    
-                    with col_d2:
-                        st.write(f"**Date:** {sale['date']}")
-                        st.write(f"**Paiement:** {sale['payment']}")
-                    
-                    with col_d3:
-                        st.write(f"**Articles:** {sale['items_count']}")
-                        st.write(f"**Commission:** {sale['commission']:,.0f} MAD")
+                ca_ttc = sale['revenue'] * 1.20
+                expander_title = f"💳 Vente #{sale['id']} | {sale['date']} | {sale['customer']} | **{ca_ttc:,.2f} MAD TTC**"
+                
+                with st.expander(expander_title):
+                    st.write(f"**Vendeur :** {sale['seller']}  |  **Paiement :** {sale['payment']}  |  **Commission :** {sale['commission']:,.0f} MAD")
                     
                     # Détail des articles
                     details = get_sale_details(sale['id'])
                     
                     if details:
-                        st.write("**Articles vendus:**")
-                        for item in details['items']:
-                            st.write(f"  • {item['name']} x{item['quantity']} = {item['total']:,.0f} MAD")
+                        with st.container(border=True):
+                            st.caption("DÉTAIL DES ARTICLES")
+                            for item in details['items']:
+                                st.markdown(f"- **{item['quantity']}x** {item['name']} : {item['total']:,.2f} MAD")
+                            
+                            st.divider()
+                            
+                            # Totaux financiers
+                            c_ht, c_tva, c_ttc = st.columns(3)
+                            c_ht.metric("Total HT", f"{details['total_revenue']:,.2f} MAD")
+                            c_tva.metric("TVA (20%)", f"{details['total_revenue'] * 0.20:,.2f} MAD")
+                            c_ttc.metric("Total TTC", f"{details['total_revenue'] * 1.20:,.2f} MAD")
                         
-                        # Totaux
-                        col_t1, col_t2, col_t3 = st.columns(3)
-                        with col_t1:
-                            st.info(f"**Total HT:** {details['total_revenue']:,.0f} MAD")
-                        with col_t2:
-                            st.info(f"**TVA:** {details['total_revenue'] * 0.20:,.0f} MAD")
-                        with col_t3:
-                            st.success(f"**Total TTC:** {details['total_revenue'] * 1.20:,.0f} MAD")
-                        
-                        # Bouton ticket
-                        if st.button("🧾 Télécharger ticket", key=f"ticket_{sale['id']}"):
-                            pdf_path = generate_ticket_pdf(sale['id'])
-                            if pdf_path and os.path.exists(pdf_path):
-                                with open(pdf_path, "rb") as f:
-                                    pdf_bytes = f.read()
-                                b64 = base64.b64encode(pdf_bytes).decode()
-                                href = f'<a href="data:application/octet-stream;base64,{b64}" download="{os.path.basename(pdf_path)}">📥 Cliquez pour télécharger le ticket</a>'
-                                st.markdown(href, unsafe_allow_html=True)
-                                st.success("Ticket généré!")
-    
+                        # --- Bouton de téléchargement natif Streamlit ---
+                        pdf_path = generate_ticket_pdf(sale['id'])
+                        if pdf_path and os.path.exists(pdf_path):
+                            with open(pdf_path, "rb") as f:
+                                st.download_button(
+                                    label="📥 Télécharger le Ticket (PDF)",
+                                    data=f,
+                                    file_name=os.path.basename(pdf_path),
+                                    mime="application/pdf",
+                                    key=f"dl_ticket_{sale['id']}"
+                                )
+
+    # ==========================================
+    # ONGLET 2 : TABLEAU DE BORD (Statistiques)
+    # ==========================================
     with tab2:
-        st.subheader("📊 Statistiques des ventes")
+        st.subheader("📊 Performances Globales")
         
-        col_s1, col_s2 = st.columns(2)
+        period_stats = st.radio(
+            "Vue d'ensemble par :",
+            ["Jour", "Semaine", "Mois", "Année"],
+            horizontal=True
+        )
         
-        with col_s1:
-            period_stats = st.radio(
-                "Période",
-                ["Jour", "Semaine", "Mois", "Année"],
-                horizontal=True
-            )
-        
-        period_map = {
-            "Jour": "day",
-            "Semaine": "week",
-            "Mois": "month",
-            "Année": "year"
-        }
-        
+        period_map = {"Jour": "day", "Semaine": "week", "Mois": "month", "Année": "year"}
         stats = get_sales_stats(period_map[period_stats])
         
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        with col_m1:
-            st.metric("Ventes", stats['count'])
-        with col_m2:
-            st.metric("CA", f"{stats['revenue']:,.0f} MAD")
-        with col_m3:
-            st.metric("Bénéfice", f"{stats['profit']:,.0f} MAD")
-        with col_m4:
-            st.metric("Ticket moyen", f"{stats['avg_ticket']:,.0f} MAD")
+        with st.container(border=True):
+            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+            col_s1.metric("Transactions", stats['count'])
+            col_s2.metric("Chiffre d'Affaires", f"{stats['revenue']:,.2f} MAD")
+            col_s3.metric("Bénéfice Net", f"{stats['profit']:,.2f} MAD")
+            col_s4.metric("Panier Moyen", f"{stats['avg_ticket']:,.2f} MAD")
         
-        # Graphique d'évolution
-        st.subheader("Évolution des ventes")
+        st.markdown("---")
+        st.subheader("📈 Évolution sur les 30 derniers jours")
         
-        # Récupérer les ventes des 30 derniers jours
         end = datetime.now().date()
         start = end - timedelta(days=30)
         sales_30d = get_sales_history(start, end)
@@ -165,43 +160,58 @@ def sales_history_page():
                 'profit': 'sum'
             }).reset_index()
             
-            fig = px.line(
+            # Utilisation d'un Area Chart pour un rendu plus moderne
+            fig = px.area(
                 df_daily,
                 x='date',
                 y=['revenue', 'profit'],
-                title="CA et bénéfice journaliers",
-                labels={'value': 'MAD', 'variable': 'Métrique'},
-                color_discrete_map={'revenue': '#00adb5', 'profit': '#00ff00'}
+                labels={'value': 'Montant (MAD)', 'variable': 'Indicateur', 'date': 'Date'},
+                color_discrete_map={'revenue': '#00adb5', 'profit': '#17c3b2'} # Couleurs harmonieuses
+            )
+            
+            # Options visuelles pour le graphique
+            fig.update_layout(
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             st.plotly_chart(fig, use_container_width=True)
-    
+        else:
+            st.info("Pas assez de données pour générer le graphique.")
+
+    # ==========================================
+    # ONGLET 3 : EXPORT COMPTABLE
+    # ==========================================
     with tab3:
-        st.subheader("📤 Export des données")
+        st.subheader("📤 Exporter les données vers Excel")
+        st.write("Générez un fichier complet pour votre comptabilité.")
         
-        col_e1, col_e2 = st.columns(2)
-        
-        with col_e1:
-            export_start = st.date_input("Date début", today - timedelta(days=30), key="export_start")
-        
-        with col_e2:
-            export_end = st.date_input("Date fin", today, key="export_end")
-        
-        if st.button("📥 Exporter en Excel", type="primary"):
-            with st.spinner("Génération du fichier..."):
-                filepath = export_sales_to_excel(export_start, export_end)
+        with st.container(border=True):
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+                export_start = st.date_input("Date de début", today - timedelta(days=30), key="export_start")
+            with col_e2:
+                export_end = st.date_input("Date de fin", today, key="export_end")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- Bouton d'export généré dynamiquement ---
+            filepath = export_sales_to_excel(export_start, export_end)
+            
+            if filepath and os.path.exists(filepath):
+                with open(filepath, "rb") as f:
+                    st.download_button(
+                        label="📥 Télécharger le fichier Excel",
+                        data=f,
+                        file_name=os.path.basename(filepath),
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True
+                    )
+            else:
+                st.error("Impossible de générer le fichier Excel actuellement.")
                 
-                if filepath and os.path.exists(filepath):
-                    with open(filepath, "rb") as f:
-                        excel_bytes = f.read()
-                    b64 = base64.b64encode(excel_bytes).decode()
-                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{os.path.basename(filepath)}">📥 Cliquez pour télécharger le fichier Excel</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-                    st.success("Export terminé!")
-        
-        st.info("""
-        **L'export Excel contient :**
-        - Liste complète des ventes
-        - Détails par transaction
-        - Calculs automatiques (TVA, marges)
-        - Filtrable par période
+        st.caption("""
+        **💡 Ce que contient l'export :**
+        La liste complète des transactions sur la période, le détail article par article, 
+        les montants HT et TTC, ainsi que la TVA et les marges calculées.
         """)
