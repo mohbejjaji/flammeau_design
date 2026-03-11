@@ -226,3 +226,19 @@ class VariableExpense(Base):
     
     def __repr__(self):
         return f"<VariableExpense {self.type} - {self.amount} MAD>"
+
+class FixedChargeTemplate(Base):
+    """Modèle pour les charges fixes prédéfinies (template)"""
+    __tablename__ = "fixed_charge_templates"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)  # Nom de la charge (ex: "Salaires", "CNSS")
+    description = Column(String)            # Description optionnelle
+    default_amount = Column(Float, default=0)  # Montant par défaut
+    is_active = Column(Boolean, default=True)  # Pour désactiver sans supprimer
+    category = Column(String, default="fixe")  # Catégorie (fixe, variable, etc.)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    def __repr__(self):
+        return f"<FixedChargeTemplate {self.name}: {self.default_amount} MAD>"

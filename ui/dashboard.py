@@ -1,7 +1,8 @@
 import streamlit as st
 from services.reporting_service import kpi_summary, sales_dataframe
-from config import FIXED_CHARGES
+from services.expense_service import get_expense_stats  # ✅ Nouvel import
 from services.stock_service import get_current_stock, get_low_stock_products
+from datetime import datetime
 
 
 def dashboard_page():
@@ -9,8 +10,12 @@ def dashboard_page():
 
     total_revenue, net_profit = kpi_summary()
     
-    # Calculer le total des charges fixes
-    total_fixed_charges = sum(FIXED_CHARGES.values())
+    # ✅ Récupérer les charges fixes depuis la base de données
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    stats = get_expense_stats(current_year, current_month)
+    total_fixed_charges = stats['total_fixed']
+    
     real_profit = net_profit - total_fixed_charges
 
     col1, col2, col3, col4 = st.columns(4)
@@ -27,10 +32,10 @@ def dashboard_page():
     else:
         st.info("Aucune vente enregistrée pour le moment.")
         
-    # Optionnel : Afficher le détail des charges fixes
-    with st.expander("Détail des charges fixes"):
-        for charge, montant in FIXED_CHARGES.items():
-            st.write(f"{charge}: {montant} MAD")
+    # ✅ Afficher le détail des charges fixes depuis la base
+    with st.expander("Détail des charges fixes du mois"):
+        st.write(f"**Total des charges fixes:** {total_fixed_charges:,.0f} MAD")
+        st.caption("(Les charges fixes sont gérées dans la section 'Charges')")
     
     st.subheader("📦 Aperçu du stock")
     

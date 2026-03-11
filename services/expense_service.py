@@ -45,15 +45,56 @@ def add_fixed_expense(expense_data):
     return expense
 
 
+def update_fixed_expense(expense_id, expense_data):
+    """Met à jour une charge fixe existante"""
+    db = SessionLocal()
+    try:
+        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        
+        if not expense:
+            return None
+        
+        # Mettre à jour les champs
+        expense.date = expense_data['date']
+        expense.type = expense_data['type']
+        expense.amount = expense_data['amount']
+        expense.description = expense_data.get('description', '')
+        
+        db.commit()
+        db.refresh(expense)
+        return expense
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+
 def delete_fixed_expense(expense_id):
     """Supprime une charge fixe"""
     db = SessionLocal()
-    expense = db.query(Expense).get(expense_id)
-    if expense:
-        db.delete(expense)
-        db.commit()
-    db.close()
-    return True
+    try:
+        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        if expense:
+            db.delete(expense)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+
+def get_fixed_expense_by_id(expense_id):
+    """Récupère une charge fixe par son ID"""
+    db = SessionLocal()
+    try:
+        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        return expense
+    finally:
+        db.close()
 
 
 # ========== CHARGES VARIABLES ==========
@@ -104,16 +145,62 @@ def add_variable_expense(expense_data):
     return expense
 
 
+def update_variable_expense(expense_id, expense_data):
+    """Met à jour une charge variable existante"""
+    db = SessionLocal()
+    try:
+        expense = db.query(VariableExpense).filter(VariableExpense.id == expense_id).first()
+        
+        if not expense:
+            return None
+        
+        expense.date = expense_data['date']
+        expense.type = expense_data['type']
+        expense.amount = expense_data['amount']
+        expense.description = expense_data.get('description', '')
+        expense.vehicle = expense_data.get('vehicle')
+        expense.project = expense_data.get('project')
+        expense.supplier = expense_data.get('supplier')
+        expense.payment_method = expense_data.get('payment_method', 'Espèces')
+        
+        db.commit()
+        db.refresh(expense)
+        return expense
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+
 def delete_variable_expense(expense_id):
     """Supprime une charge variable"""
     db = SessionLocal()
-    expense = db.query(VariableExpense).get(expense_id)
-    if expense:
-        db.delete(expense)
-        db.commit()
-    db.close()
-    return True
+    try:
+        expense = db.query(VariableExpense).filter(VariableExpense.id == expense_id).first()
+        if expense:
+            db.delete(expense)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
 
+
+def get_variable_expense_by_id(expense_id):
+    """Récupère une charge variable par son ID"""
+    db = SessionLocal()
+    try:
+        expense = db.query(VariableExpense).filter(VariableExpense.id == expense_id).first()
+        return expense
+    finally:
+        db.close()
+
+
+# ========== STATISTIQUES ==========
 
 def get_expense_stats(year=None, month=None):
     """Statistiques des charges"""

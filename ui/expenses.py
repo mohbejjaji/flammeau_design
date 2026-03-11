@@ -3,11 +3,10 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, date
 from services.expense_service import (
-    get_fixed_expenses, add_fixed_expense, delete_fixed_expense,
-    get_variable_expenses, add_variable_expense, delete_variable_expense,
+    get_fixed_expenses, add_fixed_expense, delete_fixed_expense, update_fixed_expense, get_fixed_expense_by_id,
+    get_variable_expenses, add_variable_expense, delete_variable_expense, update_variable_expense, get_variable_expense_by_id,
     get_expense_stats, get_monthly_expense_report
 )
-from config import FIXED_CHARGES
 
 
 def expenses_page():
@@ -27,7 +26,7 @@ def expenses_page():
     }
     
     # Onglets
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard Charges", "🏢 Charges Fixes", "🔄 Charges Variables"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard Charges", "🏢 Charges Fixes", "🔄 Charges Variables", "✏️ Gérer les charges"])
     
     with tab1:
         st.subheader("📊 Dashboard des charges")
@@ -107,41 +106,36 @@ def expenses_page():
             st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        st.subheader("🏢 Charges fixes")
+        st.subheader("🏢 Ajouter une charge fixe")
         
-        col_f1, col_f2 = st.columns([1, 1])
+        # Formulaire d'ajout de charge fixe
+        with st.form("add_fixed_expense", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                expense_date = st.date_input("📅 Date", date.today())
+                expense_type = st.text_input("🏷️ Type de charge", placeholder="Ex: Loyer, Assurance, Electricité...")
+            with col2:
+                expense_amount = st.number_input("💰 Montant (MAD)", min_value=0.0, step=100.0)
+                expense_desc = st.text_input("📝 Description", placeholder="Détails...")
+            
+            if st.form_submit_button("✅ Ajouter la charge fixe", use_container_width=True):
+                if expense_type and expense_amount > 0:
+                    add_fixed_expense({
+                        'date': expense_date,
+                        'type': expense_type,
+                        'amount': expense_amount,
+                        'description': expense_desc
+                    })
+                    st.success(f"✅ Charge fixe '{expense_type}' ajoutée!")
+                    st.rerun()
+                else:
+                    st.error("❌ Le type et le montant sont obligatoires")
         
-        with col_f1:
-            st.write("**Charges fixes mensuelles prédéfinies:**")
-            for charge, montant in FIXED_CHARGES.items():
-                if charge != "total":
-                    st.write(f"- {charge}: {montant} MAD")
-        
-        with col_f2:
-            st.write("**Ajouter une charge fixe ponctuelle:**")
-            with st.form("add_fixed_expense"):
-                expense_date = st.date_input("Date", date.today())
-                expense_type = st.text_input("Type de charge", placeholder="Ex: Loyer, Assurance...")
-                expense_amount = st.number_input("Montant (MAD)", min_value=0.0, step=100.0)
-                expense_desc = st.text_input("Description", placeholder="Détails...")
-                
-                if st.form_submit_button("✅ Ajouter"):
-                    if expense_type and expense_amount > 0:
-                        add_fixed_expense({
-                            'date': expense_date,
-                            'type': expense_type,
-                            'amount': expense_amount,
-                            'description': expense_desc
-                        })
-                        st.success("Charge ajoutée!")
-                        st.rerun()
-        
-        # Liste des charges fixes
-        st.subheader("Historique des charges fixes")
+        # ✅ Afficher l'historique des charges fixes
+        st.subheader("📋 Historique des charges fixes")
         
         year_fixed = st.selectbox("Année", [2024, 2025, 2026], key="fixed_year")
-        month_fixed = st.selectbox("Mois", ["Tous"] + [f"{i:02d}" for i in range(1, 13)], 
-                                  key="fixed_month")
+        month_fixed = st.selectbox("Mois", ["Tous"] + [f"{i:02d}" for i in range(1, 13)], key="fixed_month")
         
         month_num_fixed = None if month_fixed == "Tous" else int(month_fixed)
         fixed_expenses = get_fixed_expenses(year_fixed, month_num_fixed)
@@ -158,14 +152,6 @@ def expenses_page():
                 for e in fixed_expenses
             ])
             st.dataframe(df_fixed, use_container_width=True, hide_index=True)
-            
-            # Suppression
-            if st.checkbox("Mode suppression - Charges fixes"):
-                delete_id = st.number_input("ID de la charge à supprimer", min_value=1, step=1)
-                if st.button("🗑️ Supprimer"):
-                    delete_fixed_expense(delete_id)
-                    st.success("Charge supprimée!")
-                    st.rerun()
         else:
             st.info("Aucune charge fixe pour cette période")
     
@@ -219,60 +205,259 @@ def expenses_page():
                         'payment_method': var_payment
                     }
                     add_variable_expense(expense_data)
-                    st.success("Charge variable ajoutée!")
+                    st.success("✅ Charge variable ajoutée!")
                     st.rerun()
+    
+    with tab4:
+        st.subheader("✏️ Gérer les charges existantes")
         
-        # Filtres
-        col_fv1, col_fv2, col_fv3 = st.columns(3)
+        # Sous-onglets pour fixe/variable
+        sub_tab1, sub_tab2 = st.tabs(["🏢 Charges Fixes", "🔄 Charges Variables"])
         
-        with col_fv1:
-            var_year = st.selectbox("Année", [2024, 2025, 2026], key="var_year")
-        with col_fv2:
-            var_month = st.selectbox("Mois", ["Tous"] + [f"{i:02d}" for i in range(1, 13)], 
-                                    key="var_month")
-        with col_fv3:
-            var_type_filter = st.selectbox(
-                "Type",
-                ["Tous"] + list(variable_types.keys()),
-                format_func=lambda x: "Tous" if x == "Tous" else variable_types[x]
-            )
-        
-        month_num_var = None if var_month == "Tous" else int(var_month)
-        type_filter = None if var_type_filter == "Tous" else var_type_filter
-        
-        var_expenses = get_variable_expenses(var_year, month_num_var, type_filter)
-        
-        if var_expenses:
-            # Statistiques de la période
-            total_var = sum(e.amount for e in var_expenses)
-            st.metric(f"Total charges variables ({len(var_expenses)} opérations)", 
-                     f"{total_var:,.0f} MAD")
+        with sub_tab1:
+            st.write("### Modifier/Supprimer une charge fixe")
             
-            # Tableau détaillé
-            df_var = pd.DataFrame([
-                {
-                    'ID': e.id,
-                    'Date': e.date,
-                    'Type': variable_types.get(e.type, e.type),
-                    'Montant': f"{e.amount:,.0f} MAD",
-                    'Description': e.description or "-",
-                    'Véhicule': e.vehicle or "-",
-                    'Projet': e.project or "-",
-                    'Fournisseur': e.supplier or "-",
-                    'Paiement': e.payment_method
+            # Filtres
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                year_fix = st.selectbox("Année", [2024, 2025, 2026], key="fix_year")
+            with col_f2:
+                month_fix = st.selectbox("Mois", ["Tous"] + [f"{i:02d}" for i in range(1, 13)], key="fix_month")
+            
+            month_num_fix = None if month_fix == "Tous" else int(month_fix)
+            fixed_expenses = get_fixed_expenses(year_fix, month_num_fix)
+            
+            if fixed_expenses:
+                # Créer un DataFrame pour l'affichage
+                df_fixed = pd.DataFrame([
+                    {
+                        'ID': e.id,
+                        'Date': e.date,
+                        'Type': e.type,
+                        'Montant': e.amount,
+                        'Description': e.description or '-'
+                    }
+                    for e in fixed_expenses
+                ])
+                
+                # Afficher le tableau
+                st.dataframe(
+                    df_fixed,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", width=50),
+                        "Date": st.column_config.DateColumn("Date"),
+                        "Type": st.column_config.TextColumn("Type"),
+                        "Montant": st.column_config.NumberColumn("Montant", format="%.0f MAD"),
+                        "Description": st.column_config.TextColumn("Description")
+                    }
+                )
+                
+                # Sélection pour modification
+                st.markdown("---")
+                st.write("#### Sélectionner une charge à modifier")
+                
+                expense_options = {
+                    f"#{e.id} - {e.date} - {e.type} - {e.amount:,.0f} MAD": e.id 
+                    for e in fixed_expenses
                 }
-                for e in var_expenses
-            ])
+                
+                selected = st.selectbox(
+                    "Choisir une charge",
+                    options=list(expense_options.keys()),
+                    key="select_fixed"
+                )
+                
+                if selected:
+                    expense_id = expense_options[selected]
+                    expense = get_fixed_expense_by_id(expense_id)
+                    
+                    if expense:
+                        with st.form("edit_fixed_form"):
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                new_date = st.date_input("Date", value=expense.date)
+                                new_type = st.text_input("Type", value=expense.type)
+                            with col2:
+                                new_amount = st.number_input(
+                                    "Montant (MAD)",
+                                    min_value=0.0,
+                                    value=float(expense.amount),
+                                    step=100.0
+                                )
+                                new_desc = st.text_input("Description", value=expense.description or "")
+                            
+                            col_b1, col_b2 = st.columns(2)
+                            
+                            with col_b1:
+                                if st.form_submit_button("💾 Mettre à jour"):
+                                    try:
+                                        update_fixed_expense(expense_id, {
+                                            'date': new_date,
+                                            'type': new_type,
+                                            'amount': new_amount,
+                                            'description': new_desc
+                                        })
+                                        st.success("✅ Charge mise à jour!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ Erreur: {e}")
+                            
+                            with col_b2:
+                                if st.form_submit_button("🗑️ Supprimer", type="secondary"):
+                                    if st.checkbox("Confirmer la suppression?"):
+                                        try:
+                                            delete_fixed_expense(expense_id)
+                                            st.success("✅ Charge supprimée!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ Erreur: {e}")
+            else:
+                st.info("Aucune charge fixe trouvée pour cette période")
+        
+        with sub_tab2:
+            st.write("### Modifier/Supprimer une charge variable")
             
-            st.dataframe(df_var, use_container_width=True, hide_index=True)
+            # Filtres
+            col_f1, col_f2, col_f3 = st.columns(3)
+            with col_f1:
+                year_var = st.selectbox("Année", [2024, 2025, 2026], key="var_year")
+            with col_f2:
+                month_var = st.selectbox("Mois", ["Tous"] + [f"{i:02d}" for i in range(1, 13)], key="var_month")
+            with col_f3:
+                type_var = st.selectbox(
+                    "Type",
+                    ["Tous"] + list(variable_types.keys()),
+                    format_func=lambda x: "Tous" if x == "Tous" else variable_types[x],
+                    key="var_type"
+                )
             
-            # Suppression
-            if st.checkbox("Mode suppression - Charges variables"):
-                delete_id = st.number_input("ID de la charge à supprimer", min_value=1, step=1,
-                                           key="var_delete")
-                if st.button("🗑️ Supprimer", key="delete_var"):
-                    delete_variable_expense(delete_id)
-                    st.success("Charge supprimée!")
-                    st.rerun()
-        else:
-            st.info("Aucune charge variable pour cette période")
+            month_num_var = None if month_var == "Tous" else int(month_var)
+            type_filter = None if type_var == "Tous" else type_var
+            
+            var_expenses = get_variable_expenses(year_var, month_num_var, type_filter)
+            
+            if var_expenses:
+                # Afficher le tableau
+                df_var = pd.DataFrame([
+                    {
+                        'ID': e.id,
+                        'Date': e.date,
+                        'Type': variable_types.get(e.type, e.type),
+                        'Montant': e.amount,
+                        'Description': e.description or '-',
+                        'Véhicule': e.vehicle or '-',
+                        'Projet': e.project or '-',
+                        'Fournisseur': e.supplier or '-'
+                    }
+                    for e in var_expenses
+                ])
+                
+                st.dataframe(
+                    df_var,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", width=50),
+                        "Date": st.column_config.DateColumn("Date"),
+                        "Type": st.column_config.TextColumn("Type"),
+                        "Montant": st.column_config.NumberColumn("Montant", format="%.0f MAD"),
+                        "Description": st.column_config.TextColumn("Description"),
+                        "Véhicule": st.column_config.TextColumn("Véhicule"),
+                        "Projet": st.column_config.TextColumn("Projet"),
+                        "Fournisseur": st.column_config.TextColumn("Fournisseur")
+                    }
+                )
+                
+                # Sélection pour modification
+                st.markdown("---")
+                st.write("#### Sélectionner une charge à modifier")
+                
+                expense_options = {
+                    f"#{e.id} - {e.date} - {variable_types.get(e.type, e.type)} - {e.amount:,.0f} MAD": e.id 
+                    for e in var_expenses
+                }
+                
+                selected = st.selectbox(
+                    "Choisir une charge",
+                    options=list(expense_options.keys()),
+                    key="select_var"
+                )
+                
+                if selected:
+                    expense_id = expense_options[selected]
+                    expense = get_variable_expense_by_id(expense_id)
+                    
+                    if expense:
+                        with st.form("edit_var_form"):
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                new_date = st.date_input("Date", value=expense.date)
+                                new_type = st.selectbox(
+                                    "Type",
+                                    options=list(variable_types.keys()),
+                                    format_func=lambda x: variable_types[x],
+                                    index=list(variable_types.keys()).index(expense.type) if expense.type in variable_types else 0
+                                )
+                                new_amount = st.number_input(
+                                    "Montant (MAD)",
+                                    min_value=0.0,
+                                    value=float(expense.amount),
+                                    step=50.0
+                                )
+                            
+                            with col2:
+                                if new_type == "gasoil":
+                                    new_vehicle = st.text_input("Véhicule", value=expense.vehicle or "")
+                                else:
+                                    new_vehicle = None
+                                
+                                if new_type in ["menuiserie", "soudure"]:
+                                    new_project = st.text_input("Projet", value=expense.project or "")
+                                    new_supplier = st.text_input("Fournisseur", value=expense.supplier or "")
+                                else:
+                                    new_project = None
+                                    new_supplier = None
+                                
+                                new_payment = st.selectbox(
+                                    "Mode de paiement",
+                                    ["Espèces", "Carte", "Virement", "Chèque"],
+                                    index=["Espèces", "Carte", "Virement", "Chèque"].index(expense.payment_method) if expense.payment_method in ["Espèces", "Carte", "Virement", "Chèque"] else 0
+                                )
+                            
+                            new_desc = st.text_input("Description", value=expense.description or "")
+                            
+                            col_b1, col_b2 = st.columns(2)
+                            
+                            with col_b1:
+                                if st.form_submit_button("💾 Mettre à jour"):
+                                    try:
+                                        update_variable_expense(expense_id, {
+                                            'date': new_date,
+                                            'type': new_type,
+                                            'amount': new_amount,
+                                            'description': new_desc,
+                                            'vehicle': new_vehicle,
+                                            'project': new_project,
+                                            'supplier': new_supplier,
+                                            'payment_method': new_payment
+                                        })
+                                        st.success("✅ Charge mise à jour!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ Erreur: {e}")
+                            
+                            with col_b2:
+                                if st.form_submit_button("🗑️ Supprimer", type="secondary"):
+                                    if st.checkbox("Confirmer la suppression?"):
+                                        try:
+                                            delete_variable_expense(expense_id)
+                                            st.success("✅ Charge supprimée!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ Erreur: {e}")
+            else:
+                st.info("Aucune charge variable trouvée pour cette période")
