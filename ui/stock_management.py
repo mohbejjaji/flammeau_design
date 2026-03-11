@@ -9,38 +9,36 @@ from services.stock_service import (
 from services.product_service import get_products
 from datetime import datetime, timedelta
 
-
 def stock_management_page():
-    st.header("📊 Gestion de Stock")
+    st.header("📊 Gestion et Analyse des Stocks")
     
-    # Onglets pour différentes vues
+    # Onglets pour différentes vues avec icônes
     tab1, tab2, tab3, tab4 = st.tabs([
         "📦 État du stock", 
-        "📈 Analyse", 
-        "📜 Mouvements",
-        "⚠️ Alertes"
+        "📈 Analyse Financière", 
+        "📜 Mouvements (E/S)",
+        "⚠️ Centre d'Alertes"
     ])
     
+    # ==========================================
+    # ONGLET 1 : ÉTAT DU STOCK
+    # ==========================================
     with tab1:
-        st.subheader("État actuel du stock")
-        
-        # Récupérer les données de stock
         stock_data = get_current_stock()
         
         if not stock_data:
-            st.info("Aucun produit en stock")
+            st.info("ℹ️ Aucun produit actuellement en stock dans la base de données.")
         else:
-            # Filtres
-            col_f1, col_f2 = st.columns(2)
+            # --- Filtres ---
+            with st.container(border=True):
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    categories = ["Toutes"] + sorted(list(set(s['category'] for s in stock_data)))
+                    selected_category = st.selectbox("Filtrer par catégorie", categories)
+                with col_f2:
+                    search = st.text_input("Rechercher un produit", placeholder="Nom ou référence...")
             
-            with col_f1:
-                categories = ["Toutes"] + list(set(s['category'] for s in stock_data))
-                selected_category = st.selectbox("Catégorie", categories)
-            
-            with col_f2:
-                search = st.text_input("Rechercher", placeholder="Nom ou référence...")
-            
-            # Filtrer les données
+            # --- Filtrage des données ---
             filtered_data = stock_data
             if selected_category != "Toutes":
                 filtered_data = [s for s in filtered_data if s['category'] == selected_category]
@@ -48,197 +46,209 @@ def stock_management_page():
             if search:
                 filtered_data = [
                     s for s in filtered_data 
-                    if search.lower() in s['name'].lower() 
-                    or search.lower() in s['reference'].lower()
+                    if search.lower() in s['name'].lower() or search.lower() in s['reference'].lower()
                 ]
             
-            # Statistiques globales
+            # --- KPIs (Métriques) ---
             total_products = len(filtered_data)
             total_quantity = sum(s['quantity'] for s in filtered_data)
             total_value = sum(s['stock_value'] for s in filtered_data)
             total_potential = sum(s['potential_revenue'] for s in filtered_data)
             
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            with col_m1:
-                st.metric("Produits", total_products)
-            with col_m2:
-                st.metric("Unités en stock", total_quantity)
-            with col_m3:
-                st.metric("Valeur stock", f"{total_value:,.0f} MAD")
-            with col_m4:
-                st.metric("CA potentiel", f"{total_potential:,.0f} MAD")
+            col_m1.metric("Références actives", total_products)
+            col_m2.metric("Unités physiques", total_quantity)
+            col_m3.metric("Valeur d'achat stock", f"{total_value:,.0f} MAD")
+            col_m4.metric("CA Potentiel", f"{total_potential:,.0f} MAD")
             
-            # Tableau détaillé
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- Tableau interactif ---
             df = pd.DataFrame(filtered_data)
             
-            # Formater les colonnes
+            # Création d'une colonne statut visuelle
+            df['Statut'] = df['quantity'].apply(lambda x: "🔴 Rupture" if x <= 0 else ("🟠 Faible" if x < 5 else "🟢 OK"))
+            
             df_display = df[[
-                'reference', 'name', 'category', 'subtype', 
-                'quantity', 'avg_cost', 'selling_price', 
-                'stock_value', 'potential_profit'
-            ]].copy()
-            
-            df_display.columns = [
-                'Référence', 'Produit', 'Catégorie', 'Type',
-                'Stock', 'Coût moy.', 'Prix vente', 'Valeur', 'Profit pot.'
-            ]
-            
-            # Formatage des nombres
-            df_display['Coût moy.'] = df_display['Coût moy.'].apply(lambda x: f"{x:,.0f} MAD")
-            df_display['Prix vente'] = df_display['Prix vente'].apply(lambda x: f"{x:,.0f} MAD")
-            df_display['Valeur'] = df_display['Valeur'].apply(lambda x: f"{x:,.0f} MAD")
-            df_display['Profit pot.'] = df_display['Profit pot.'].apply(lambda x: f"{x:,.0f} MAD")
-            
-            # Colorer les lignes selon le stock
-            def color_stock(val):
-                try:
-                    # Extraire le nombre de stock
-                    if pd.isna(val) or 'MAD' in str(val):
-                        return ''
-                    stock_val = float(str(val).replace(' MAD', '').replace(',', ''))
-                    if stock_val == 0:
-                        return 'background-color: #ffcccc'
-                    elif stock_val < 5:
-                        return 'background-color: #fff3cd'
-                    else:
-                        return ''
-                except:
-                    return ''
-            
-            styled_df = df_display.style.applymap(color_stock, subset=['Stock'])
+                'Statut', 'reference', 'name', 'category', 'subtype', 
+                'quantity', 'avg_cost', 'selling_price', 'stock_value'
+            ]]
             
             st.dataframe(
-                styled_df,
+                df_display,
+                column_config={
+                    "Statut": st.column_config.TextColumn("Statut"),
+                    "reference": st.column_config.TextColumn("Réf."),
+                    "name": st.column_config.TextColumn("Produit"),
+                    "category": st.column_config.TextColumn("Catégorie"),
+                    "subtype": st.column_config.TextColumn("Type"),
+                    "quantity": st.column_config.NumberColumn("Stock", format="%d"),
+                    "avg_cost": st.column_config.NumberColumn("Coût unitaire", format="%.2f MAD"),
+                    "selling_price": st.column_config.NumberColumn("Prix vente", format="%.2f MAD"),
+                    "stock_value": st.column_config.NumberColumn("Valeur Totale", format="%.2f MAD")
+                },
                 use_container_width=True,
                 hide_index=True,
-                height=500
+                height=450
             )
-    
+
+    # ==========================================
+    # ONGLET 2 : ANALYSE
+    # ==========================================
     with tab2:
-        st.subheader("Analyse du stock")
-        
-        stock_data = get_current_stock()
+        st.subheader("Visualisation de la valeur du stock")
         
         if stock_data:
             df = pd.DataFrame(stock_data)
             
-            col_a1, col_a2 = st.columns(2)
-            
-            with col_a1:
-                # Répartition par catégorie
-                cat_stats = df.groupby('category').agg({
-                    'quantity': 'sum',
-                    'stock_value': 'sum'
-                }).reset_index()
+            with st.container(border=True):
+                col_a1, col_a2 = st.columns(2)
                 
-                fig = px.pie(
-                    cat_stats, 
-                    values='stock_value', 
-                    names='category',
-                    title="Valeur du stock par catégorie"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col_a2:
-                # Top produits par valeur
-                top_products = df.nlargest(10, 'stock_value')[['name', 'stock_value']]
-                fig = px.bar(
-                    top_products,
-                    x='stock_value',
-                    y='name',
-                    orientation='h',
-                    title="Top 10 produits par valeur",
-                    labels={'stock_value': 'Valeur (MAD)', 'name': ''}
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # Rotation du stock (simplifiée)
-            st.subheader("Indicateurs de rotation")
-            
-            total_sales = 50000  # À remplacer par vraies données
-            avg_stock = df['stock_value'].mean()
-            
-            if avg_stock > 0:
-                rotation = total_sales / avg_stock
-                st.metric("Rotation du stock", f"{rotation:.2f}")
-                
-                # Interprétation
-                if rotation < 2:
-                    st.warning("⚠️ Rotation lente - stock peut-être trop important")
-                elif rotation < 4:
-                    st.info("ℹ️ Rotation moyenne")
-                else:
-                    st.success("✅ Bonne rotation du stock")
-        else:
-            st.info("Pas assez de données pour l'analyse")
-    
-    with tab3:
-        st.subheader("Mouvements de stock récents")
-        
-        # Sélection du produit
-        products = get_products()
-        if products:
-            product_options = {p.name: p.id for p in products}
-            product_options["Tous les produits"] = None
-            
-            selected = st.selectbox(
-                "Filtrer par produit",
-                options=list(product_options.keys())
-            )
-            
-            product_id = product_options[selected]
-            
-            # Période
-            days = st.slider("Période (jours)", 7, 90, 30)
-            
-            # Récupérer les mouvements
-            movements = get_stock_movements(product_id if product_id else None, days)
-            
-            if movements:
-                df_movements = pd.DataFrame(movements)
-                st.dataframe(df_movements, use_container_width=True, hide_index=True)
-                
-                # Graphique d'évolution
-                if product_id:
-                    # Calculer l'évolution du stock
-                    df_movements['net'] = df_movements['quantity']
-                    df_movements['cumulative'] = df_movements['net'].cumsum()
-                    
-                    fig = px.line(
-                        df_movements.sort_values('date'),
-                        x='date',
-                        y='cumulative',
-                        title="Évolution du stock"
+                with col_a1:
+                    # Graphique Camembert (Donut) plus esthétique
+                    cat_stats = df.groupby('category')['stock_value'].sum().reset_index()
+                    fig_pie = px.pie(
+                        cat_stats, 
+                        values='stock_value', 
+                        names='category',
+                        hole=0.4, # Transforme en donut
+                        color_discrete_sequence=px.colors.qualitative.Pastel
                     )
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Aucun mouvement sur cette période")
+                    fig_pie.update_layout(showlegend=True, legend=dict(orientation="h", y=-0.1))
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                
+                with col_a2:
+                    # Top produits
+                    top_products = df.nlargest(8, 'stock_value')[['name', 'stock_value']]
+                    fig_bar = px.bar(
+                        top_products,
+                        x='stock_value',
+                        y='name',
+                        orientation='h',
+                        color='stock_value',
+                        color_continuous_scale='Blues'
+                    )
+                    fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig_bar, use_container_width=True)
+            
+            # --- Indicateurs de rotation ---
+            st.subheader("Indicateurs de Performance")
+            with st.container(border=True):
+                total_sales = 50000  # Note: Pense à remplacer par la vraie fonction (ex: get_total_sales())
+                avg_stock = df['stock_value'].mean()
+                
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    st.metric("Ventes de référence (Démonstration)", f"{total_sales:,.0f} MAD")
+                    
+                with col_r2:
+                    if avg_stock > 0:
+                        rotation = total_sales / avg_stock
+                        st.metric("Taux de rotation", f"{rotation:.2f}x")
+                        
+                        if rotation < 2:
+                            st.warning("⚠️ Rotation lente : Risque de sur-stockage sur certains produits.")
+                        elif rotation < 4:
+                            st.info("ℹ️ Rotation moyenne : Flux tendu correct.")
+                        else:
+                            st.success("✅ Bonne rotation : Vos produits se vendent rapidement.")
         else:
-            st.info("Aucun produit dans la base")
-    
+            st.info("Pas assez de données pour l'analyse.")
+
+    # ==========================================
+    # ONGLET 3 : MOUVEMENTS (Avec filtre E/S)
+    # ==========================================
+    with tab3:
+        st.subheader("Traçabilité des Mouvements")
+        
+        with st.container(border=True):
+            col_m1, col_m2, col_m3 = st.columns([2, 1, 1.5], vertical_alignment="bottom")
+            
+            with col_m1:
+                products = get_products()
+                product_options = {"Tous les produits": None}
+                if products:
+                    product_options.update({p.name: p.id for p in products})
+                selected_prod = st.selectbox("Produit", options=list(product_options.keys()))
+                product_id = product_options[selected_prod]
+                
+            with col_m2:
+                days = st.number_input("Période (Jours)", min_value=1, max_value=365, value=30)
+                
+            with col_m3:
+                mov_type = st.radio("Flux", ["Tous 🔄", "Entrées 📥", "Sorties 📤"], horizontal=True)
+
+        movements = get_stock_movements(product_id, days)
+        
+        if movements:
+            df_movements = pd.DataFrame(movements)
+            
+            # Filtrage selon Entrée ou Sortie
+            if mov_type == "Entrées 📥":
+                df_movements = df_movements[df_movements['quantity'] > 0]
+            elif mov_type == "Sorties 📤":
+                df_movements = df_movements[df_movements['quantity'] < 0]
+
+            if df_movements.empty:
+                st.info(f"Aucun mouvement correspondant au filtre '{mov_type}' trouvé.")
+            else:
+                # Création d'une colonne "Type" visuelle
+                df_movements['Flux'] = df_movements['quantity'].apply(lambda x: "📥 Entrée" if x > 0 else "📤 Sortie")
+                
+                # 🛠️ CORRECTION ICI : Liste dynamique des colonnes
+                cols_to_display = ['date', 'Flux', 'quantity']
+                
+                if 'reference' in df_movements.columns:
+                    cols_to_display.append('reference')
+                if 'reason' in df_movements.columns:
+                    cols_to_display.append('reason')
+                
+                st.dataframe(
+                    df_movements[cols_to_display],
+                    column_config={
+                        "date": st.column_config.DatetimeColumn("Date et Heure", format="DD/MM/YYYY HH:mm"),
+                        "Flux": st.column_config.TextColumn("Flux"),
+                        "quantity": st.column_config.NumberColumn("Quantité"),
+                        "reference": st.column_config.TextColumn("Réf. Document / Facture"),
+                        "reason": st.column_config.TextColumn("Motif")
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.info("Aucun mouvement enregistré sur cette période.")
+
+    # ==========================================
+    # ONGLET 4 : ALERTES
+    # ==========================================
     with tab4:
-        st.subheader("⚠️ Alertes stock")
+        st.subheader("Centre d'Alertes")
         
         alerts = get_stock_alerts()
+        low_stock = get_low_stock_products()
         
-        if alerts:
-            for alert in alerts:
-                if alert['type'] == 'danger':
-                    st.error(f"**{alert['product']}** : {alert['message']}")
-                else:
-                    st.warning(f"**{alert['product']}** : {alert['message']}")
-            
-            # Actions rapides
-            st.markdown("---")
-            st.subheader("Actions recommandées")
-            
-            low_stock = get_low_stock_products()
-            if low_stock:
-                st.info("📦 Produits à réapprovisionner:")
-                for p in low_stock[:5]:
-                    st.markdown(f"- {p.name} (stock: {p.stock_quantity})")
+        col_al1, col_al2 = st.columns([2, 1])
+        
+        with col_al1:
+            if alerts:
+                for alert in alerts:
+                    if alert.get('type') == 'danger':
+                        st.error(f"🚨 **{alert['product']}** : {alert['message']}")
+                    else:
+                        st.warning(f"⚠️ **{alert['product']}** : {alert['message']}")
+            else:
+                st.success("✅ Félicitations, aucun problème de stock signalé.")
                 
-                if st.button("➕ Créer un arrivage"):
-                    st.switch_page("arrivals")  # Redirection vers la page d'arrivage
-        else:
-            st.success("✅ Aucune alerte stock")
+        with col_al2:
+            with st.container(border=True):
+                st.markdown("#### ⚡ Actions rapides")
+                if low_stock:
+                    st.caption("Produits nécessitant un réapprovisionnement imminent :")
+                    for p in low_stock[:5]: # Afficher les 5 plus urgents
+                        st.markdown(f"- {p.name} (*Reste: {p.stock_quantity}*)")
+                    
+                    st.divider()
+                    if st.button("➕ Enregistrer un arrivage", type="primary", use_container_width=True):
+                        st.switch_page("arrivals") # Assure-toi que cette page existe dans ton architecture
+                else:
+                    st.caption("Le stock est à des niveaux sains.")
