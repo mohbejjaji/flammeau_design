@@ -11,6 +11,8 @@ from reportlab.lib.units import cm
 import streamlit as st
 
 
+# ==================== FONCTIONS EXISTANTES ====================
+
 def get_sales_history(start_date=None, end_date=None, limit=100):
     """Récupère l'historique des ventes avec filtres optionnels"""
     db = SessionLocal()
@@ -101,264 +103,6 @@ def get_sale_details(sale_id):
     }
 
 
-def generate_ticket_pdf(sale_id):
-    """Génère un PDF professionnel du ticket de vente (format A4)"""
-    db = SessionLocal()
-    
-    sale = db.query(Sale).filter(Sale.id == sale_id).first()
-    
-    if not sale:
-        db.close()
-        return None
-    
-    # Créer le dossier temp s'il n'existe pas
-    os.makedirs("temp", exist_ok=True)
-    
-    # Nom du fichier
-    filename = f"facture_{sale.id:04d}_{sale.date.strftime('%Y%m%d')}.pdf"
-    filepath = os.path.join("temp", filename)
-    
-    # Configuration du document (format A4 avec marges ajustées)
-    doc = SimpleDocTemplate(
-        filepath,
-        pagesize=A4,
-        rightMargin=1.5*cm,
-        leftMargin=1.5*cm,
-        topMargin=1.2*cm,
-        bottomMargin=1*cm
-    )
-    
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    # Styles personnalisés
-    styles.add(ParagraphStyle(
-        name='CompanyName',
-        parent=styles['Heading1'],
-        fontSize=22,
-        textColor=colors.HexColor('#00adb5'),
-        spaceAfter=6,
-        alignment=1
-    ))
-    
-    styles.add(ParagraphStyle(
-        name='CompanyInfo',
-        parent=styles['Normal'],
-        fontSize=9,
-        textColor=colors.grey,
-        alignment=1,
-        spaceAfter=3
-    ))
-    
-    styles.add(ParagraphStyle(
-        name='DocumentTitle',
-        parent=styles['Heading2'],
-        fontSize=16,
-        textColor=colors.HexColor('#393e46'),
-        spaceAfter=12,
-        alignment=1
-    ))
-    
-    styles.add(ParagraphStyle(
-        name='SectionTitle',
-        parent=styles['Heading3'],
-        fontSize=13,
-        textColor=colors.HexColor('#393e46'),
-        spaceAfter=8,
-        spaceBefore=6,
-        alignment=0
-    ))
-    
-    styles.add(ParagraphStyle(
-        name='Footer',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.grey,
-        alignment=1,
-        spaceBefore=12
-    ))
-    
-    # En-tête avec logo
-    try:
-        logo_path = os.path.join("assets", "logo.PNG")
-        if os.path.exists(logo_path):
-            from reportlab.platypus import Image
-            logo = Image(logo_path, width=90, height=45)
-            logo.hAlign = 'CENTER'
-            elements.append(logo)
-            elements.append(Spacer(1, 0.3*cm))
-    except:
-        pass
-    
-    # Nom de l'entreprise
-    elements.append(Paragraph("FLAMMEAU DESIGN", styles['CompanyName']))
-    elements.append(Paragraph("Importateur de cheminées | Tél: +212 661-XXXXXX", styles['CompanyInfo']))
-    elements.append(Paragraph("contact@flammeau.ma | www.flammeau-design.ma", styles['CompanyInfo']))
-    elements.append(Spacer(1, 0.4*cm))
-    
-    # Titre du document
-    elements.append(Paragraph("FACTURE / TICKET DE VENTE", styles['DocumentTitle']))
-    
-    # Informations du document
-    data_info = [
-        ["N° Facture:", f"FAC-{sale.id:04d}", "Date:", sale.date.strftime('%d/%m/%Y')],
-        ["Client:", sale.customer_name, "Tél client:", sale.customer_phone or "Non renseigné"],
-        ["Vendeur:", sale.seller_name or "N/A", "Mode paiement:", sale.payment_method or "N/A"],
-    ]
-    
-    t_info = Table(data_info, colWidths=[2.8*cm, 5.2*cm, 2.8*cm, 5.2*cm])
-    t_info.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#00adb5')),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#00adb5')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(t_info)
-    elements.append(Spacer(1, 0.6*cm))
-    
-    # Section articles
-    elements.append(Paragraph("Détail des articles", styles['SectionTitle']))
-    
-    # Récupérer les articles
-    product_items = db.query(SaleItem).filter(SaleItem.sale_id == sale_id).all()
-    service_items = db.query(SaleService).filter(SaleService.sale_id == sale_id).all()
-    
-    # Créer le tableau des articles (sans lignes vides)
-    data_articles = []
-    
-    # En-tête
-    data_articles.append(['Désignation', 'Qté', 'Prix unitaire', 'Total HT'])
-    
-    # Ajouter les produits
-    for item in product_items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if product:
-            # Tronquer le nom si nécessaire
-            name = product.name
-            if len(name) > 40:
-                name = name[:37] + "..."
-        else:
-            name = "Produit"
-        
-        data_articles.append([
-            name,
-            str(item.quantity),
-            f"{item.unit_price:,.0f} MAD",
-            f"{item.quantity * item.unit_price:,.0f} MAD"
-        ])
-    
-    # Ajouter les services
-    for item in service_items:
-        description = item.description
-        if len(description) > 40:
-            description = description[:37] + "..."
-        
-        data_articles.append([
-            description,
-            str(item.quantity),
-            f"{item.unit_price:,.0f} MAD",
-            f"{item.quantity * item.unit_price:,.0f} MAD"
-        ])
-    
-    # Calculer les totaux
-    total_ht = sale.total_revenue
-    total_ttc = total_ht * 1.20
-    total_tva = total_ttc - total_ht
-    
-    # Ajouter la ligne de total
-    data_articles.append(['', '', 'TOTAL HT', f"{total_ht:,.0f} MAD"])
-    data_articles.append(['', '', 'TVA (20%)', f"{total_tva:,.0f} MAD"])
-    data_articles.append(['', '', 'TOTAL TTC', f"{total_ttc:,.0f} MAD"])
-    
-    # Calculer le nombre de lignes d'articles (sans l'en-tête et sans les totaux)
-    articles_count = len(product_items) + len(service_items)
-    
-    # Ajuster dynamiquement la hauteur des lignes
-    if articles_count <= 2:
-        row_heights = [0.8*cm] * (articles_count + 4)  # +4 pour en-tête + 3 lignes de totaux
-    elif articles_count <= 4:
-        row_heights = [0.7*cm] * (articles_count + 4)
-    elif articles_count <= 6:
-        row_heights = [0.6*cm] * (articles_count + 4)
-    else:
-        row_heights = [0.5*cm] * (articles_count + 4)
-    
-    # Définir les largeurs de colonnes
-    if articles_count > 5:
-        col_widths = [8.5*cm, 1.5*cm, 2.5*cm, 2.5*cm]
-    else:
-        col_widths = [9.5*cm, 1.5*cm, 2.5*cm, 2.5*cm]
-    
-    # Créer le tableau avec hauteurs de lignes spécifiques
-    table_articles = Table(data_articles, colWidths=col_widths, rowHeights=row_heights)
-    
-    # Style du tableau
-    style_articles = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00adb5')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('FONTSIZE', (0, 1), (-1, -4), 9),  # Articles
-        ('FONTSIZE', (0, -3), (-1, -1), 10),  # Totaux
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (1, 1), (1, -4), 'CENTER'),
-        ('ALIGN', (2, 1), (2, -4), 'RIGHT'),
-        ('ALIGN', (3, 1), (3, -4), 'RIGHT'),
-        ('ALIGN', (2, -3), (3, -1), 'RIGHT'),
-        ('GRID', (0, 1), (-1, -4), 0.5, colors.grey),  # Grille seulement sur les articles
-        ('FONTNAME', (0, -3), (-1, -1), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, -3), (-1, -1), colors.HexColor('#f0f0f0')),
-        ('LINEABOVE', (0, -3), (-1, -3), 1, colors.black),
-        ('SPAN', (0, -3), (1, -3)),
-        ('SPAN', (0, -2), (1, -2)),
-        ('SPAN', (0, -1), (1, -1)),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-    ]
-    
-    table_articles.setStyle(TableStyle(style_articles))
-    elements.append(table_articles)
-    elements.append(Spacer(1, 0.6*cm))
-    
-    # Section paiement
-    elements.append(Paragraph("Paiement", styles['SectionTitle']))
-    
-    data_payment = [
-        ["Montant TTC:", f"{total_ttc:,.0f} MAD", "Statut:", "Payé"],
-    ]
-    
-    t_payment = Table(data_payment, colWidths=[3.5*cm, 4*cm, 3*cm, 4*cm])
-    t_payment.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#00adb5')),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#00adb5')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(t_payment)
-    
-    # Note si présente
-    if hasattr(sale, 'note') and sale.note:
-        elements.append(Spacer(1, 0.2*cm))
-        elements.append(Paragraph(f"Note: {sale.note}", styles['Normal']))
-    
-    # Mentions légales
-    elements.append(Spacer(1, 0.4*cm))
-    elements.append(Paragraph("Merci de votre confiance ! 🔥", styles['Footer']))
-    elements.append(Paragraph("FLAMMEAU DESIGN - SIREN: XXX XXX XXX - TVA: FRXXXXXXXXX", styles['Footer']))
-    
-    # Générer le PDF
-    doc.build(elements)
-    db.close()
-    
-    return filepath
-
-
 def get_sales_stats(period="month"):
     """Statistiques des ventes par période"""
     db = SessionLocal()
@@ -442,5 +186,295 @@ def export_sales_to_excel(start_date=None, end_date=None):
                     pass
             adjusted_width = min(max_length + 2, 30)
             worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    return filepath
+
+
+def generate_ticket_pdf(sale_id):
+    """Génère un PDF professionnel du ticket de vente (format A4)"""
+    db = SessionLocal()
+    
+    sale = db.query(Sale).filter(Sale.id == sale_id).first()
+    
+    if not sale:
+        db.close()
+        return None
+    
+    # Créer le dossier temp s'il n'existe pas
+    os.makedirs("temp", exist_ok=True)
+    
+    # Nom du fichier
+    filename = f"ticket_{sale.id:04d}_{sale.date.strftime('%Y%m%d')}.pdf"
+    filepath = os.path.join("temp", filename)
+    
+    # Configuration du document
+    doc = SimpleDocTemplate(
+        filepath,
+        pagesize=A4,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    styles.add(ParagraphStyle(
+        name='CompanyName',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#00adb5'),
+        spaceAfter=10,
+        alignment=1
+    ))
+    
+    # En-tête
+    elements.append(Paragraph("FLAMMEAU DESIGN", styles['CompanyName']))
+    elements.append(Paragraph("Importateur de cheminées", styles['Normal']))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Informations du ticket
+    elements.append(Paragraph(f"Ticket N°: {sale.id:04d}", styles['Normal']))
+    elements.append(Paragraph(f"Date: {sale.date.strftime('%d/%m/%Y')}", styles['Normal']))
+    elements.append(Paragraph(f"Client: {sale.customer_name}", styles['Normal']))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Articles
+    product_items = db.query(SaleItem).filter(SaleItem.sale_id == sale_id).all()
+    service_items = db.query(SaleService).filter(SaleService.sale_id == sale_id).all()
+    
+    if product_items or service_items:
+        data = [["Description", "Qté", "Prix unitaire", "Total"]]
+        
+        for item in product_items:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
+            name = product.name if product else "Produit"
+            data.append([
+                name[:30],
+                str(item.quantity),
+                f"{item.unit_price:.0f} MAD",
+                f"{item.quantity * item.unit_price:.0f} MAD"
+            ])
+        
+        for item in service_items:
+            data.append([
+                item.description[:30],
+                str(item.quantity),
+                f"{item.unit_price:.0f} MAD",
+                f"{item.quantity * item.unit_price:.0f} MAD"
+            ])
+        
+        table = Table(data, colWidths=[8*cm, 2*cm, 3*cm, 3*cm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00adb5')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ]))
+        elements.append(table)
+    
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Paragraph(f"Total TTC: {sale.total_revenue * 1.20:.0f} MAD", styles['Heading3']))
+    
+    doc.build(elements)
+    db.close()
+    
+    return filepath
+
+
+# ==================== NOUVELLES FONCTIONS POUR LES COMMISSIONS ====================
+
+def get_commission_history(start_date=None, end_date=None, seller=None):
+    """
+    Récupère l'historique détaillé des commissions par vendeur
+    """
+    db = SessionLocal()
+    
+    query = db.query(Sale).filter(Sale.commission_amount > 0)
+    
+    if start_date:
+        query = query.filter(Sale.date >= start_date)
+    if end_date:
+        query = query.filter(Sale.date <= end_date)
+    if seller and seller != "Tous":
+        query = query.filter(Sale.seller_name == seller)
+    
+    sales = query.order_by(Sale.date.desc()).all()
+    
+    result = []
+    for sale in sales:
+        # Récupérer les détails des produits vendus
+        product_items = db.query(SaleItem).filter(SaleItem.sale_id == sale.id).all()
+        
+        # Calculer le total des ventes pour ce vendeur
+        total_ventes = sum(item.quantity * item.unit_price for item in product_items)
+        
+        result.append({
+            'id': sale.id,
+            'date': sale.date.strftime('%d/%m/%Y'),
+            'seller': sale.seller_name or 'Non assigné',
+            'customer': sale.customer_name,
+            'total_ventes': total_ventes,
+            'commission': sale.commission_amount,
+            'taux_commission': (sale.commission_amount / total_ventes * 100) if total_ventes > 0 else 0,
+            'payment_method': sale.payment_method,
+            'nb_articles': len(product_items)
+        })
+    
+    db.close()
+    return pd.DataFrame(result)
+
+
+def get_commission_summary_by_seller(start_date=None, end_date=None):
+    """
+    Récupère un résumé des commissions par vendeur
+    """
+    df = get_commission_history(start_date, end_date)
+    
+    if df.empty:
+        return pd.DataFrame()
+    
+    # Grouper par vendeur
+    summary = df.groupby('seller').agg({
+        'commission': 'sum',
+        'total_ventes': 'sum',
+        'id': 'count'
+    }).reset_index()
+    
+    summary.columns = ['Vendeur', 'Total Commissions', 'Total Ventes', 'Nombre de ventes']
+    summary['Taux moyen'] = (summary['Total Commissions'] / summary['Total Ventes'] * 100).round(1)
+    summary['Total Commissions'] = summary['Total Commissions'].round(2)
+    summary['Total Ventes'] = summary['Total Ventes'].round(2)
+    
+    return summary.sort_values('Total Commissions', ascending=False)
+
+
+def get_daily_commission_summary(date=None):
+    """
+    Récupère le résumé des commissions pour un jour spécifique
+    """
+    if date is None:
+        date = datetime.now().date()
+    
+    db = SessionLocal()
+    
+    sales = db.query(Sale).filter(
+        Sale.date == date,
+        Sale.commission_amount > 0
+    ).all()
+    
+    summary = {}
+    for sale in sales:
+        seller = sale.seller_name or 'Non assigné'
+        if seller not in summary:
+            summary[seller] = {
+                'ventes': 0,
+                'commissions': 0,
+                'nb_transactions': 0
+            }
+        summary[seller]['ventes'] += sale.total_revenue
+        summary[seller]['commissions'] += sale.commission_amount
+        summary[seller]['nb_transactions'] += 1
+    
+    db.close()
+    return summary
+
+
+def generate_commission_report_pdf(start_date, end_date, seller=None):
+    """
+    Génère un rapport PDF des commissions
+    """
+    # Récupérer les données
+    df = get_commission_history(start_date, end_date, seller)
+    
+    if df.empty:
+        return None
+    
+    # Créer le dossier temp s'il n'existe pas
+    os.makedirs("temp", exist_ok=True)
+    
+    # Nom du fichier
+    if seller and seller != "Tous":
+        filename = f"commissions_{seller}_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
+    else:
+        filename = f"commissions_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
+    filepath = os.path.join("temp", filename)
+    
+    # Configuration du document
+    doc = SimpleDocTemplate(
+        filepath,
+        pagesize=A4,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Styles personnalisés
+    styles.add(ParagraphStyle(
+        name='ReportTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#00adb5'),
+        spaceAfter=20,
+        alignment=1
+    ))
+    
+    # Titre
+    elements.append(Paragraph("Rapport des Commissions", styles['ReportTitle']))
+    elements.append(Paragraph(
+        f"Période du {start_date.strftime('%d/%m/%Y')} au {end_date.strftime('%d/%m/%Y')}",
+        styles['Normal']
+    ))
+    if seller and seller != "Tous":
+        elements.append(Paragraph(f"Vendeur: {seller}", styles['Normal']))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Tableau des commissions
+    data = [['Date', 'Vendeur', 'Client', 'Total Ventes', 'Commission', 'Taux']]
+    
+    for _, row in df.iterrows():
+        data.append([
+            row['date'],
+            row['seller'],
+            row['customer'][:20] + "..." if len(row['customer']) > 20 else row['customer'],
+            f"{row['total_ventes']:,.0f} MAD",
+            f"{row['commission']:,.0f} MAD",
+            f"{row['taux_commission']:.1f}%"
+        ])
+    
+    # Ajouter les totaux
+    total_commissions = df['commission'].sum()
+    total_ventes = df['total_ventes'].sum()
+    
+    data.append(['', '', '', 'TOTAUX', f"{total_commissions:,.0f} MAD", f"{(total_commissions/total_ventes*100):.1f}%" if total_ventes > 0 else "0%"])
+    
+    # Créer le tableau
+    table = Table(data, colWidths=[2.5*cm, 3*cm, 4*cm, 3*cm, 3*cm, 2*cm])
+    
+    # Style du tableau
+    style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00adb5')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -2), 1, colors.grey),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+        ('LINEABOVE', (0, -1), (-1, -1), 2, colors.black),
+    ]
+    
+    table.setStyle(TableStyle(style))
+    elements.append(table)
+    
+    # Générer le PDF
+    doc.build(elements)
     
     return filepath
