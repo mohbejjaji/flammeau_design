@@ -5,7 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import streamlit as st
 from core.database import engine, Base
 import core.models
-from auth.auth import check_authentication  # ✅ Import de l'authentification
+
+# ✅ Import de la vérification ET de la nouvelle fonction d'affichage
+from auth.auth import check_authentication, render_user_profile 
 
 # Configuration de la page
 st.set_page_config(
@@ -15,9 +17,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ✅ Vérifier l'authentification AVANT tout le reste
+# ✅ 1. On vérifie l'accès en premier (bloque si non authentifié)
 if not check_authentication():
-    st.stop()  # Arrête l'exécution si non authentifié
+    st.stop() 
 
 # Initialisation de la base de données
 Base.metadata.create_all(bind=engine)
@@ -43,8 +45,9 @@ try:
 except FileNotFoundError:
     pass
 
-# Sidebar (visible seulement si authentifié)
+# ✅ 2. Construction de la Sidebar dans le bon ordre
 with st.sidebar:
+    # Haut de la sidebar : Logo
     try:
         st.image("assets/logo.PNG", width=200)
     except:
@@ -52,6 +55,7 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Milieu de la sidebar : Menu
     menu = st.radio(
         "Navigation",
         [
@@ -68,6 +72,12 @@ with st.sidebar:
             "📈 Analytics"
         ]
     )
+    
+    # ASTUCE : Pour vraiment pousser les infos tout en bas, on peut ajouter un espacement flexible
+    st.markdown('<div style="flex-grow: 1;"></div>', unsafe_allow_html=True)
+    
+    # Bas de la sidebar : Profil et bouton déconnexion
+    render_user_profile()
 
 # Routing (inchangé)
 if menu == "📊 Dashboard":

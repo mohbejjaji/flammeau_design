@@ -232,24 +232,21 @@ def login_page():
 
 
 def check_authentication():
-
     init_session()
 
     if not st.session_state.authenticated:
         return login_page()
 
-    with st.sidebar:
-
-        st.success(st.session_state.user_name)
-
-        st.caption(st.session_state.user_role)
-
-        st.caption(st.session_state.login_time)
-
-        st.divider()
-
-        if st.button("Déconnexion"):
-            logout()
-
+    # On retourne juste True sans rien dessiner dans la sidebar ici
     return True
+
+# NOUVELLE FONCTION : À appeler à la fin de votre sidebar dans app.py
+def render_user_profile():
+    st.divider()
+    st.success(st.session_state.user_name)
+    st.caption(st.session_state.user_role)
+    st.caption(st.session_state.login_time)
+    
+    if st.button("Déconnexion", use_container_width=True):
+        logout()
 
