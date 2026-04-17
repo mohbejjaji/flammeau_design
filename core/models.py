@@ -180,6 +180,15 @@ class Quote(Base):
     status = Column(String, default="brouillon")
     total_amount = Column(Float, default=0)
     notes = Column(String)
+    
+    # Nouveaux champs pour le design personnalisé
+    customer_city = Column(String)
+    operation_title = Column(String)
+    external_ref = Column(String)
+    delivery_delay = Column(String)
+    payment_terms = Column(String)
+    delivery_location = Column(String)
+    
     created_at = Column(DateTime, default=datetime.now)
     
     # Relations

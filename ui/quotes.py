@@ -32,7 +32,20 @@ def quotes_page():
         
         with col2:
             customer_email = st.text_input("Email", key="quote_email")
+            customer_city = st.text_input("Ville du client", key="quote_city")
             valid_days = st.number_input("Validité (jours)", min_value=1, max_value=90, value=30)
+        
+        # Nouveaux champs pour le design professionnel
+        st.markdown("##### Informations Complémentaires")
+        col_ext1, col_ext2 = st.columns(2)
+        with col_ext1:
+            operation_title = st.text_input("Opération", value="CONCEPTION CHEMINEE A ETHANOL", key="quote_op")
+            external_ref = st.text_input("Réf N°", key="quote_ref_ext")
+            delivery_location = st.text_input("Lieu de livraison/installation", key="quote_loc")
+        
+        with col_ext2:
+            payment_terms = st.text_input("Mode de paiement", value="Mode de paiement: 50% à la commande et 50% à la livraison", key="quote_pay")
+            delivery_delay = st.text_input("Délai de livraison", value="07 jours", key="quote_delay")
         
         # Sélection des produits
         st.markdown("---")
@@ -73,7 +86,7 @@ def quotes_page():
         
         # Bouton d'ajout
         if st.button("➕ Ajouter au devis"):
-            if description and unit_price > 0:
+            if description: # Retiré la condition unit_price > 0 pour permettre "GRATUIT"
                 st.session_state.quote_items.append({
                     "product_id": product_id,
                     "description": description,
@@ -134,7 +147,13 @@ def quotes_page():
                                 customer_phone=customer_phone,
                                 customer_email=customer_email,
                                 items=st.session_state.quote_items,
-                                notes=notes
+                                notes=notes,
+                                customer_city=customer_city,
+                                operation_title=operation_title,
+                                external_ref=external_ref,
+                                delivery_delay=delivery_delay,
+                                payment_terms=payment_terms,
+                                delivery_location=delivery_location
                             )
                             st.success(f"✅ Devis {quote.quote_number} créé avec succès!")
                             st.session_state.quote_items = []

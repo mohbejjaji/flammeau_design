@@ -24,9 +24,12 @@ def generate_quote_number():
     else:
         next_num = 1
     
-    return f"DEV-{year}-{next_num:04d}"
+    # Format: DE[ANNEE][NUMERO]/MA (ex: DE2026050/MA)
+    return f"DE{year}{next_num:03d}/MA"
 
-def create_quote(customer_name, customer_phone, customer_email, items, notes=""):
+def create_quote(customer_name, customer_phone="", customer_email="", items=[], notes="", 
+                 customer_city="", operation_title="", external_ref="", 
+                 delivery_delay="", payment_terms="", delivery_location=""):
     """Crée un nouveau devis"""
     db = SessionLocal()
     
@@ -42,6 +45,12 @@ def create_quote(customer_name, customer_phone, customer_email, items, notes="")
             customer_email=customer_email,
             status="brouillon",
             notes=notes,
+            customer_city=customer_city,
+            operation_title=operation_title,
+            external_ref=external_ref,
+            delivery_delay=delivery_delay,
+            payment_terms=payment_terms,
+            delivery_location=delivery_location,
             total_amount=0
         )
         
@@ -122,158 +131,261 @@ def delete_quote(quote_id):
         db.close()
 
 def generate_quote_pdf(quote_id):
-    """Génère un PDF de devis professionnel"""
+    """Génère un PDF de devis professionnel correspondant au design Flammeau Design"""
     db = SessionLocal()
     try:
-        # ✅ Charger le devis AVEC ses items
+        # Charger le devis avec ses items
         quote = db.query(Quote).options(joinedload(Quote.quote_items)).filter(Quote.id == quote_id).first()
         
         if not quote:
             return None
         
-        # Créer le nom du fichier
-        filename = f"devis_{quote.quote_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        # Nom du fichier
+        filename = f"devis_{quote.quote_number.replace('/', '_')}_{datetime.now().strftime('%H%M%S')}.pdf"
         filepath = os.path.join("temp", filename)
-        
-        # Créer le dossier temp s'il n'existe pas
         os.makedirs("temp", exist_ok=True)
         
-        # Créer le PDF
+        # Styles de base
+        styles = getSampleStyleSheet()
+        
+        # Style pour le texte normal (petit)
+        style_norm = ParagraphStyle(
+            name='NormalStyle',
+            fontSize=9,
+            leading=11,
+            alignment=0 # Gauche
+        )
+        
+        style_bold = ParagraphStyle(
+            name='BoldStyle',
+            fontSize=9,
+            leading=11,
+            fontName='Helvetica-Bold'
+        )
+        
+        style_title = ParagraphStyle(
+            name='DocTitle',
+            fontSize=16,
+            leading=20,
+            fontName='Helvetica-Bold',
+            alignment=1, # Centre
+            textColor=colors.black
+        )
+
         doc = SimpleDocTemplate(
             filepath,
             pagesize=A4,
-            rightMargin=2*cm,
-            leftMargin=2*cm,
-            topMargin=2*cm,
-            bottomMargin=2*cm
+            topMargin=1.5*cm,
+            bottomMargin=1*cm,
+            leftMargin=1.5*cm,
+            rightMargin=1.5*cm
         )
         
         elements = []
-        styles = getSampleStyleSheet()
+
+        # --- 1. EN-TÊTE (Logo + Numéro Devis) ---
+        logo_path = os.path.join("assets", "logo.PNG")
+        logo = None
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=4*cm, height=2.2*cm)
         
-        # Style personnalisé pour l'en-tête
-        styles.add(ParagraphStyle(
-            name='CompanyName',
-            parent=styles['Heading1'],
-            fontSize=24,
-            textColor=colors.HexColor('#00adb5'),
-            spaceAfter=30
-        ))
-        
-        styles.add(ParagraphStyle(
-            name='CompanyInfo',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.grey
-        ))
-        
-        # En-tête du devis
-        elements.append(Paragraph("FLAMMEAU DESIGN", styles['CompanyName']))
-        
-        # Informations de l'entreprise
-        company_info = [
-            ["FLAMMEAU DESIGN", f"Devis N°: {quote.quote_number}"],
-            ["Importateur de cheminées", f"Date: {quote.date.strftime('%d/%m/%Y')}"],
-            ["Tél: +212 XXX-XXXXXX", f"Valable jusqu'au: {quote.valid_until.strftime('%d/%m/%Y')}"],
-            ["Email: contact@flammeau-design.ma", f"Statut: {quote.status.upper()}"]
+        devis_num_data = [
+            ["DEVIS", quote.quote_number]
         ]
-        
-        t = Table(company_info, colWidths=[10*cm, 8*cm])
-        t.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#00adb5')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.black),
+        t_devis_num = Table(devis_num_data, colWidths=[2.5*cm, 3.5*cm])
+        t_devis_num.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
         ]))
-        elements.append(t)
-        elements.append(Spacer(1, 20))
+
+        header_data = [[logo if logo else "FLAMMEAU DESIGN", "", t_devis_num]]
+        t_header = Table(header_data, colWidths=[10*cm, 1*cm, 6*cm])
+        t_header.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+        ]))
+        elements.append(t_header)
+        elements.append(Spacer(1, 5*mm))
+
+        # Barres Marrons/Oranges
+        line_table = Table([[""]], colWidths=[18*cm], rowHeights=[1*mm])
+        line_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#8B4513')), # Marron
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(line_table)
         
-        # Informations client
-        client_info = [
-            ["CLIENT:", ""],
-            [quote.customer_name, f"Tél: {quote.customer_phone or 'Non renseigné'}"],
-            ["", f"Email: {quote.customer_email or 'Non renseigné'}"]
+        # Titre DEVIS
+        devis_title_table = Table([[Paragraph("DEVIS", style_title)]], colWidths=[18*cm])
+        devis_title_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        elements.append(devis_title_table)
+        elements.append(Spacer(1, 8*mm))
+
+        # --- 2. CLIENT & DIVERS ---
+        # Bloc Client
+        client_table_data = [
+            [Paragraph("Client", style_bold), ""],
+            [Paragraph("Nom", style_norm), Paragraph(f"<b>{quote.customer_name}</b>", style_norm)],
+            [Paragraph("Ville", style_norm), Paragraph(quote.customer_city or "", style_norm)],
+        ]
+        t_client = Table(client_table_data, colWidths=[2*cm, 7*cm])
+        t_client.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('LINEABOVE', (0, 1), (-1, 1), 0.5, colors.black),
+            ('LINEBELOW', (0, 1), (-1, 1), 0.5, colors.black),
+            ('INNERGRID', (0, 1), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (0, 0), colors.white),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+
+        # Bloc Divers
+        divers_table_data = [
+            [Paragraph("Divers", style_bold), ""],
+            [Paragraph("Date", style_norm), Paragraph(quote.date.strftime('%d/%m/%Y'), style_norm)],
+            [Paragraph("Réf N°", style_norm), Paragraph(quote.external_ref or "", style_norm)],
+            [Paragraph("Opération", style_norm), Paragraph(quote.operation_title or "", style_norm)],
+        ]
+        t_divers = Table(divers_table_data, colWidths=[2.5*cm, 5.5*cm])
+        t_divers.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('LINEABOVE', (0, 1), (-1, 1), 0.5, colors.black),
+            ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 1), (-1, -1), 0.5, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+
+        info_data = [[t_client, Spacer(1.5*cm, 1), t_divers]]
+        t_info = Table(info_data, colWidths=[9*cm, 1*cm, 8*cm])
+        t_info.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        elements.append(t_info)
+        elements.append(Spacer(1, 10*mm))
+
+        # --- 3. ARTICLES ---
+        data = [
+            [Paragraph("Qté", style_bold), Paragraph("Description", style_bold), 
+             Paragraph("Prix unitaire", style_bold), Paragraph("TOTAL", style_bold)]
         ]
         
-        t = Table(client_info, colWidths=[3*cm, 15*cm])
-        t.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#00adb5')),
-            ('SPAN', (0, 1), (0, 2)),
-            ('VALIGN', (0, 1), (0, 2), 'MIDDLE'),
-        ]))
-        elements.append(t)
-        elements.append(Spacer(1, 20))
-        
-        # Tableau des articles
-        data = [["Description", "Quantité", "Prix unitaire (MAD)", "Total (MAD)"]]
-        
-        for item in quote.quote_items:  # ✅ Maintenant les items sont chargés
+        for item in quote.quote_items:
+            unit_price_str = f"{item.unit_price:,.2f}" if item.unit_price > 0 else ""
+            total_price_str = f"{item.quantity * item.unit_price:,.2f}" if item.unit_price > 0 else "GRATUIT"
+            
+            # Formatter la description pour gérer les sauts de ligne si présents (ex: Size: ...)
+            desc_p = Paragraph(item.description.replace("\n", "<br/>"), style_norm)
+            
             data.append([
-                item.description,
                 str(item.quantity),
-                f"{item.unit_price:,.2f}",
-                f"{item.quantity * item.unit_price:,.2f}"
+                desc_p,
+                unit_price_str,
+                total_price_str
             ])
         
-        # Ligne de total
-        data.append(["", "", "TOTAL HT", f"{quote.total_amount:,.2f} MAD"])
-        data.append(["", "", "TVA (20%)", f"{quote.total_amount * 0.20:,.2f} MAD"])
-        data.append(["", "", "TOTAL TTC", f"{quote.total_amount * 1.20:,.2f} MAD"])
+        # Ajouter les conditions de livraison/paiement dans le tableau (design comme l'image)
+        if quote.delivery_location:
+            data.append(["1", Paragraph(quote.delivery_location, style_norm), "", ""])
+            
+        data.append(["", Paragraph(f"<b>Mode de paiement:</b> {quote.payment_terms or ''}", style_norm), "", ""])
+        data.append(["", Paragraph(f"<b>Délai de livraison:</b>", style_norm), "", ""])
+        data.append(["", Paragraph(f"{quote.delivery_delay or ''}", style_norm), "", ""])
+
+        t_articles = Table(data, colWidths=[1.5*cm, 10.5*cm, 3*cm, 3*cm])
+        t_articles.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -5), 0.5, colors.black, None, (2, 2)), # Pointillés pour les items
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, 0), 0.5, colors.black),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'), # Qté centrée
+            ('ALIGN', (2, 0), (-1, -1), 'CENTER'), # Prix/Total centrés
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ]))
         
-        # Créer le tableau
-        table = Table(data, colWidths=[10*cm, 3*cm, 4*cm, 4*cm])
+        # Modifier le style de grille pour les items (pointillés)
+        for i in range(1, len(data) - 4):
+            t_articles.setStyle(TableStyle([
+                ('LINEBELOW', (0, i), (-1, i), 0.5, colors.black, None, (1, 1)),
+            ]))
+
+        elements.append(t_articles)
         
-        # Style du tableau
-        table_style = [
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00adb5')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -4), 1, colors.black),
-            ('FONTNAME', (0, -3), (-1, -1), 'Helvetica-Bold'),
-            ('BACKGROUND', (0, -3), (-1, -1), colors.HexColor('#f0f0f0')),
-            ('LINEABOVE', (0, -3), (-1, -3), 2, colors.black),
+        # --- 4. TOTALS & CACHET ---
+        total_ht = quote.total_amount
+        total_p_vente = quote.total_amount # Dans l'image "Prix de vente" est identique au total
+        
+        totals_data = [
+            [Paragraph("TOTAL", style_norm), f"{total_ht:,.2f}"],
+            [Paragraph("Prix de vente", style_norm), f"{total_p_vente:,.2f}"],
+            [Paragraph("TOTAL", style_bold), Paragraph(f"<b>{total_ht:,.2f}</b>", style_bold)],
         ]
+        t_totals = Table(totals_data, colWidths=[2.5*cm, 3*cm])
+        t_totals.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black, None, (1, 1)),
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BACKGROUND', (0, 2), (1, 2), colors.white),
+        ]))
+
+        cachet_data = [[Paragraph("Cachet", style_bold)]]
+        t_cachet = Table(cachet_data, colWidths=[5*cm], rowHeights=[2.5*cm])
+        t_cachet.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+
+        footer_boxes_data = [[t_cachet, Spacer(7.5*cm, 1), t_totals]]
+        t_footer_boxes = Table(footer_boxes_data, colWidths=[5*cm, 7.5*cm, 5.5*cm])
+        t_footer_boxes.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+        ]))
         
-        table.setStyle(TableStyle(table_style))
-        elements.append(table)
-        elements.append(Spacer(1, 30))
+        elements.append(Spacer(1, 5*mm))
+        elements.append(t_footer_boxes)
+
+        # --- 5. PIED DE PAGE LÉGAL ---
+        elements.append(Spacer(1, 10*mm))
         
-        # Notes et conditions
-        if quote.notes:
-            elements.append(Paragraph("Notes:", styles['Heading6']))
-            elements.append(Paragraph(quote.notes, styles['Normal']))
-            elements.append(Spacer(1, 15))
+        # Ligne marron en bas
+        elements.append(line_table)
         
-        # Conditions générales
-        conditions = [
-            "Conditions générales :",
-            "• Devis valable 30 jours",
-            "• Paiement à réception de facture",
-            "• Garantie 2 ans sur tous nos produits",
-            "• Installation possible sur devis séparé"
-        ]
+        style_footer_bold = ParagraphStyle(name='FooterBold', fontSize=10, fontName='Helvetica-Bold')
+        style_footer_small = ParagraphStyle(name='FooterSmall', fontSize=8, textColor=colors.grey, leading=10)
         
-        for condition in conditions:
-            elements.append(Paragraph(condition, styles['Normal']))
-        
-        # Pied de page
-        elements.append(Spacer(1, 30))
-        footer_text = "FLAMMEAU DESIGN - Importateur de cheminées - SIREN: XXX XXX XXX - www.flammeau-design.ma"
-        elements.append(Paragraph(footer_text, styles['Italic']))
-        
-        # Générer le PDF
+        elements.append(Paragraph("Flammeau Design", style_footer_bold))
+        legal_info = (
+            "R.C: 394471 IF: 25036297 TP: 35779187 ICE: 002019352000032<br/>"
+            "Siège : Lotissement DAR AL AMANE DAR BOUAZZA CASABLANCA<br/>"
+            "Capital : 100.000,00 DHS<br/>"
+            "Tel : +212 (0) 522 655986<br/>"
+            "GSM : +212 (0) 66536006<br/>"
+            "Email : Flammeaudesign@gmail.com<br/>"
+            "Site web : www.Flammeaudesign.com"
+        )
+        elements.append(Paragraph(legal_info, style_footer_small))
+
+        # Générer
         doc.build(elements)
-        
         return filepath
+        
+    except Exception as e:
+        print(f"Erreur PDF: {e}")
+        return None
+    finally:
+        db.close()
     finally:
         db.close()
 
