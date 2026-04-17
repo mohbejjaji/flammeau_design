@@ -65,7 +65,8 @@ def create_quote(customer_name, customer_phone="", customer_email="", items=[], 
                 product_id=item.get("product_id"),
                 description=item["description"],
                 quantity=item["quantity"],
-                unit_price=item["unit_price"]
+                unit_price=item["unit_price"],
+                size=item.get("size", "") # Ajout de la taille
             )
             db.add(quote_item)
             total += item["quantity"] * item["unit_price"]
@@ -276,45 +277,47 @@ def generate_quote_pdf(quote_id):
         # --- 3. ARTICLES ---
         data = [
             [Paragraph("Qté", style_bold), Paragraph("Description", style_bold), 
-             Paragraph("Prix unitaire", style_bold), Paragraph("TOTAL", style_bold)]
+             Paragraph("Size", style_bold), Paragraph("Prix unitaire", style_bold), 
+             Paragraph("TOTAL", style_bold)]
         ]
         
         for item in quote.quote_items:
             unit_price_str = f"{item.unit_price:,.2f}" if item.unit_price > 0 else ""
             total_price_str = f"{item.quantity * item.unit_price:,.2f}" if item.unit_price > 0 else "GRATUIT"
             
-            # Formatter la description pour gérer les sauts de ligne si présents (ex: Size: ...)
             desc_p = Paragraph(item.description.replace("\n", "<br/>"), style_norm)
+            size_p = Paragraph(item.size or "", style_norm) # Affichage de la taille
             
             data.append([
                 str(item.quantity),
                 desc_p,
+                size_p,
                 unit_price_str,
                 total_price_str
             ])
         
-        # Ajouter les conditions de livraison/paiement dans le tableau (design comme l'image)
+        # Ajouter les conditions de livraison/paiement dans le tableau (design dynamique)
         if quote.delivery_location:
-            data.append(["1", Paragraph(quote.delivery_location, style_norm), "", ""])
+            data.append(["1", Paragraph(quote.delivery_location, style_norm), "", "", ""])
             
-        data.append(["", Paragraph(f"<b>Mode de paiement:</b> {quote.payment_terms or ''}", style_norm), "", ""])
-        data.append(["", Paragraph(f"<b>Délai de livraison:</b>", style_norm), "", ""])
-        data.append(["", Paragraph(f"{quote.delivery_delay or ''}", style_norm), "", ""])
+        data.append(["", Paragraph(f"<b>Mode de paiement:</b> {quote.payment_terms or ''}", style_norm), "", "", ""])
+        data.append(["", Paragraph(f"<b>Délai de livraison:</b> {quote.delivery_delay or ''}", style_norm), "", "", ""])
 
-        t_articles = Table(data, colWidths=[1.5*cm, 10.5*cm, 3*cm, 3*cm])
+        # 5 colonnes désormais
+        t_articles = Table(data, colWidths=[1.2*cm, 7.8*cm, 3.0*cm, 3.0*cm, 3.0*cm])
         t_articles.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -5), 0.5, colors.black, None, (2, 2)), # Pointillés pour les items
+            ('GRID', (0, 0), (-1, -4), 0.5, colors.black, None, (2, 2)), # Pointillés pour les items
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
             ('INNERGRID', (0, 0), (-1, 0), 0.5, colors.black),
             ('ALIGN', (0, 0), (0, -1), 'CENTER'), # Qté centrée
-            ('ALIGN', (2, 0), (-1, -1), 'CENTER'), # Prix/Total centrés
+            ('ALIGN', (2, 0), (-1, -1), 'CENTER'), # Size/Prix/Total centrés
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
         ]))
         
-        # Modifier le style de grille pour les items (pointillés)
-        for i in range(1, len(data) - 4):
+        # Modifier le style de grille pour les items (pointillés) - on s'arrête avant les conditions
+        for i in range(1, len(data) - 3):
             t_articles.setStyle(TableStyle([
                 ('LINEBELOW', (0, i), (-1, i), 0.5, colors.black, None, (1, 1)),
             ]))

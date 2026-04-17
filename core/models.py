@@ -204,6 +204,7 @@ class QuoteItem(Base):
     description = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
+    size = Column(String)  # Taille / Dimensions
     
     # Relations
     quote = relationship("Quote", back_populates="quote_items")

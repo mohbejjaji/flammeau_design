@@ -51,7 +51,7 @@ def quotes_page():
         st.markdown("---")
         st.subheader("Ajouter des produits/services")
         
-        col_prod1, col_prod2, col_prod3 = st.columns([2, 1, 1])
+        col_prod1, col_prod2, col_prod3, col_prod4 = st.columns([2, 1, 1, 1])
         
         with col_prod1:
             # Option 1: Sélectionner un produit existant
@@ -66,8 +66,11 @@ def quotes_page():
         
         with col_prod2:
             quantity = st.number_input("Quantité", min_value=1, value=1, key="quote_qty")
-        
+            
         with col_prod3:
+            size = st.text_input("Taille / Size", placeholder="ex: 133(L)60(H)...", key="quote_size")
+        
+        with col_prod4:
             if product_options[selected_option]:
                 # Produit existant
                 default_price = product_options[selected_option].selling_price
@@ -92,6 +95,7 @@ def quotes_page():
                     "description": description,
                     "quantity": quantity,
                     "unit_price": unit_price,
+                    "size": size, # Ajout de la taille
                     "total": quantity * unit_price
                 })
                 st.success(f"Ajouté: {description} x{quantity}")
@@ -106,8 +110,8 @@ def quotes_page():
             
             # Afficher le tableau
             df_items = pd.DataFrame(st.session_state.quote_items)
-            df_display = df_items[["description", "quantity", "unit_price", "total"]].copy()
-            df_display.columns = ["Description", "Qté", "Prix unitaire", "Total"]
+            df_display = df_items[["description", "size", "quantity", "unit_price", "total"]].copy()
+            df_display.columns = ["Description", "Taille", "Qté", "Prix unitaire", "Total"]
             df_display["Prix unitaire"] = df_display["Prix unitaire"].apply(lambda x: f"{x:,.2f} MAD")
             df_display["Total"] = df_display["Total"].apply(lambda x: f"{x:,.2f} MAD")
             
