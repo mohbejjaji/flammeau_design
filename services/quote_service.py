@@ -389,8 +389,6 @@ def generate_quote_pdf(quote_id):
         return None
     finally:
         db.close()
-    finally:
-        db.close()
 
 def convert_quote_to_sale(quote_id):
     """Convertit un devis accepté en vente"""
