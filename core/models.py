@@ -20,7 +20,7 @@ class Product(Base):
     created_at = Column(DateTime, default=datetime.now)
     
     # Relations
-    stock_lots = relationship("StockLot", back_populates="product", foreign_keys="[StockLot.product_id]")
+    stock_lots = relationship("StockLot", back_populates="product", foreign_keys="StockLot.product_id")
     sale_items = relationship("SaleItem", back_populates="product")
     shipment_items = relationship("ShipmentItem", back_populates="product")
     
