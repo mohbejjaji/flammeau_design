@@ -173,6 +173,28 @@ def generate_quote_pdf(quote_id):
             textColor=colors.black
         )
 
+        style_company = ParagraphStyle(
+            name='CompanyName',
+            fontSize=22,
+            leading=26,
+            fontName='Helvetica-BoldOblique',
+            textColor=colors.black
+        )
+
+        style_footer_company = ParagraphStyle(
+            name='FooterCompany',
+            fontSize=11,
+            fontName='Helvetica-Bold',
+            textColor=colors.HexColor('#8B4513') # Marron
+        )
+
+        style_footer_legal = ParagraphStyle(
+            name='FooterLegal',
+            fontSize=8,
+            leading=10,
+            textColor=colors.grey
+        )
+
         doc = SimpleDocTemplate(
             filepath,
             pagesize=A4,
@@ -184,49 +206,53 @@ def generate_quote_pdf(quote_id):
         
         elements = []
 
-        # --- 1. EN-TÊTE (Logo + Numéro Devis) ---
+        # --- 1. EN-TÊTE (Logo + Nom Société + Numéro Devis à droite) ---
         logo_path = os.path.join("assets", "logo.PNG")
         logo = None
         if os.path.exists(logo_path):
-            logo = Image(logo_path, width=4*cm, height=2.2*cm)
+            logo = Image(logo_path, width=2.5*cm, height=2*cm)
+        
+        company_name = Paragraph("FLAMMEAU DESIGN", style_company)
         
         devis_num_data = [
             ["DEVIS", quote.quote_number]
         ]
-        t_devis_num = Table(devis_num_data, colWidths=[2.5*cm, 3.5*cm])
+        t_devis_num = Table(devis_num_data, colWidths=[2.2*cm, 3.8*cm])
         t_devis_num.setStyle(TableStyle([
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
 
-        header_data = [[logo if logo else "FLAMMEAU DESIGN", "", t_devis_num]]
-        t_header = Table(header_data, colWidths=[10*cm, 1*cm, 6*cm])
+        header_data = [[logo if logo else "", company_name, t_devis_num]]
+        t_header = Table(header_data, colWidths=[2.8*cm, 9.2*cm, 6*cm])
         t_header.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
         ]))
         elements.append(t_header)
         elements.append(Spacer(1, 5*mm))
 
-        # Barres Marrons/Oranges
-        line_table = Table([[""]], colWidths=[18*cm], rowHeights=[1*mm])
+        # Barre Marron Epaisse (Top)
+        line_table = Table([[""]], colWidths=[18*cm], rowHeights=[1.2*mm])
         line_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#8B4513')), # Marron
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#8B4513')),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
         elements.append(line_table)
         
-        # Titre DEVIS
+        # Titre DEVIS Encadré
         devis_title_table = Table([[Paragraph("DEVIS", style_title)]], colWidths=[18*cm])
         devis_title_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         elements.append(devis_title_table)
         elements.append(Spacer(1, 8*mm))
@@ -303,23 +329,23 @@ def generate_quote_pdf(quote_id):
         data.append(["", Paragraph(f"<b>Mode de paiement:</b> {quote.payment_terms or ''}", style_norm), "", "", ""])
         data.append(["", Paragraph(f"<b>Délai de livraison:</b> {quote.delivery_delay or ''}", style_norm), "", "", ""])
 
-        # 5 colonnes désormais
+        # 5 colonnes avec bordures en pointillés
         t_articles = Table(data, colWidths=[1.2*cm, 7.8*cm, 3.0*cm, 3.0*cm, 3.0*cm])
         t_articles.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -4), 0.5, colors.black, None, (2, 2)), # Pointillés pour les items
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('INNERGRID', (0, 0), (-1, 0), 0.5, colors.black),
-            ('ALIGN', (0, 0), (0, -1), 'CENTER'), # Qté centrée
-            ('ALIGN', (2, 0), (-1, -1), 'CENTER'), # Size/Prix/Total centrés
+            ('LINEABOVE', (0, 0), (-1, 0), 0.5, colors.black), # Header
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'), # Qté
+            ('ALIGN', (2, 0), (-1, -1), 'CENTER'), # Size/Prix/Total
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
         ]))
         
-        # Modifier le style de grille pour les items (pointillés) - on s'arrête avant les conditions
-        for i in range(1, len(data) - 3):
+        # Appliquer les lignes en pointillés (dots) pour tous les articles internes
+        # On commence après le header et on s'arrête avant les mentions de livraison
+        for i in range(1, len(data)):
             t_articles.setStyle(TableStyle([
-                ('LINEBELOW', (0, i), (-1, i), 0.5, colors.black, None, (1, 1)),
+                ('LINEBELOW', (0, i), (-1, i), 0.5, colors.black, None, (1, 2)), # (1, 2) crée les pointillés
             ]))
 
         elements.append(t_articles)
@@ -359,26 +385,21 @@ def generate_quote_pdf(quote_id):
         elements.append(Spacer(1, 5*mm))
         elements.append(t_footer_boxes)
 
-        # --- 5. PIED DE PAGE LÉGAL ---
-        elements.append(Spacer(1, 10*mm))
+        # --- 5. PIED DE PAGE LÉGAL (Design Template) ---
+        elements.append(Spacer(1, 12*mm))
         
-        # Ligne marron en bas
+        # Barre Marron Epaisse (Bottom)
         elements.append(line_table)
         
-        style_footer_bold = ParagraphStyle(name='FooterBold', fontSize=10, fontName='Helvetica-Bold')
-        style_footer_small = ParagraphStyle(name='FooterSmall', fontSize=8, textColor=colors.grey, leading=10)
+        elements.append(Paragraph("Flammeau Design", style_footer_company))
         
-        elements.append(Paragraph("Flammeau Design", style_footer_bold))
         legal_info = (
             "R.C: 394471 IF: 25036297 TP: 35779187 ICE: 002019352000032<br/>"
             "Siège : Lotissement DAR AL AMANE DAR BOUAZZA CASABLANCA<br/>"
-            "Capital : 100.000,00 DHS<br/>"
-            "Tel : +212 (0) 522 655986<br/>"
-            "GSM : +212 (0) 66536006<br/>"
-            "Email : Flammeaudesign@gmail.com<br/>"
-            "Site web : www.Flammeaudesign.com"
+            "Capital : 100.000,00 DHS | Tel : +212 (0) 522 655986 | GSM : +212 (0) 66536006<br/>"
+            "Email : Flammeaudesign@gmail.com | Site web : www.Flammeaudesign.com"
         )
-        elements.append(Paragraph(legal_info, style_footer_small))
+        elements.append(Paragraph(legal_info, style_footer_legal))
 
         # Générer
         doc.build(elements)
