@@ -20,6 +20,13 @@ def load_users():
     if users_file.exists():
         with open(users_file, "r") as f:
             return json.load(f)
+    else:
+        st.error("### 🔐 Système d'authentification manquant")
+        st.warning(f"""
+        Le fichier `{users_file.name}` est manquant. 
+        Pour une nouvelle installation, vous pouvez copier `{users_file.name}.example`.
+        """)
+        st.stop()
     return {}
 
 

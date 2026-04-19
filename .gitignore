@@ -1,4 +1,18 @@
-__pycache__/
-*.pyc
+# Secrets and configuration
 .env
-flammeau.db
+auth/users.json
+
+# Local databases
+*.db
+
+# Python stuff
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env/
+
+# IDEs
+.vscode/
+.idea/
