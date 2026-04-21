@@ -1,6 +1,6 @@
 {
     "admin": {
-        "password_hash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+        "password_hash": "219fe6abc4f1781e80d297ebb5a74c63fe77901bd7ce8e81c687e2f90d03aa33",
         "name": "Administrateur",
         "role": "administrateur"
     },

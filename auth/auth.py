@@ -215,8 +215,8 @@ def login_page():
         st.markdown('<div class="login-sub">Accédez à votre espace sécurisé</div>', unsafe_allow_html=True)
 
         # Champs de saisie
-        username = st.text_input("Utilisateur")
-        password = st.text_input("Mot de passe", type="password")
+        username = st.text_input("Utilisateur").strip()
+        password = st.text_input("Mot de passe", type="password").strip()
         
         # Bouton de soumission
         submitted = st.form_submit_button("Se connecter")
