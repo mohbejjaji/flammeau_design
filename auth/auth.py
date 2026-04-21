@@ -5,6 +5,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
+import shutil
 
 
 MAX_LOGIN_ATTEMPTS = 3
@@ -17,14 +18,20 @@ def hash_password(password: str) -> str:
 
 def load_users():
     users_file = Path(__file__).parent / "users.json"
+    example_file = Path(__file__).parent / "users.json.example"
+    
+    if not users_file.exists() and example_file.exists():
+        shutil.copy(example_file, users_file)
+        st.info("⚠️ Fichier 'users.json' créé à partir du modèle.")
+    
     if users_file.exists():
         with open(users_file, "r") as f:
             return json.load(f)
     else:
         st.error("### 🔐 Système d'authentification manquant")
         st.warning(f"""
-        Le fichier `{users_file.name}` est manquant. 
-        Pour une nouvelle installation, vous pouvez copier `{users_file.name}.example`.
+        Le fichier `{users_file.name}` est manquant et aucun modèle n'a été trouvé. 
+        Pour une nouvelle installation, vous devez fournir `{users_file.name}.example`.
         """)
         st.stop()
     return {}
