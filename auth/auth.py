@@ -26,7 +26,22 @@ def load_users():
     
     if users_file.exists():
         with open(users_file, "r") as f:
-            return json.load(f)
+            users = json.load(f)
+            
+        # Synchronisation automatique du mot de passe admin si c'est encore le hash par défaut "admin"
+        if example_file.exists():
+            with open(example_file, "r") as f_ex:
+                example_users = json.load(f_ex)
+                
+            old_admin_hash = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+            if "admin" in users and users["admin"].get("password_hash") == old_admin_hash:
+                if "admin" in example_users:
+                    users["admin"]["password_hash"] = example_users["admin"]["password_hash"]
+                    with open(users_file, "w") as f_w:
+                        json.dump(users, f_w, indent=4)
+                    st.success("✅ Votre mot de passe administrateur a été mis à jour avec succès !")
+        
+        return users
     else:
         st.error("### 🔐 Système d'authentification manquant")
         st.warning(f"""
