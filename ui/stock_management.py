@@ -26,6 +26,12 @@ def stock_management_page():
     with tab1:
         stock_data = get_current_stock()
         
+        # DEBUG: Afficher les valeurs brutes pour diagnostic
+        with st.expander("🔍 DEBUG: Données brutes du stock (à supprimer après diagnostic)", expanded=False):
+            st.write(f"Nombre de produits retournés: {len(stock_data)}")
+            for s in stock_data:
+                st.write(f"  {s['reference']}: quantity={s['quantity']}")
+        
         if not stock_data:
             st.info("ℹ️ Aucun produit actuellement en stock dans la base de données.")
         else:
