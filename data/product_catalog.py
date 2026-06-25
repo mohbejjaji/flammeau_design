@@ -9,14 +9,11 @@ PRODUCT_CATALOG = {
                 "products": [
                     {"ref": "FD 001 ELT ENCASTRE", "name": "FD 001 ELT ENCASTRE"},
                     {"ref": "FD 002 ELT ENCASTRE", "name": "FD 002 ELT ENCASTRE"},
-<<<<<<< HEAD
                     {"ref": "FD 003 ELT ENCASTRE", "name": "FD 003 ELT ENCASTRE"},
                     {"ref": "FD 004 ELT ENCASTRE", "name": "FD 004 ELT ENCASTRE"},
                     {"ref": "FD 005 ELT ENCASTRE", "name": "FD 005 ELT ENCASTRE"},
-                    {"ref": "FD 006 ELT ENCASTRE", "name": "FD 006 ELT ENCASTRE"}
-=======
+                    {"ref": "FD 006 ELT ENCASTRE", "name": "FD 006 ELT ENCASTRE"},
                     {"ref": "FD 004 ELT ENCASTRE", "name": "FD 004 ELT ENCASTRE"}
->>>>>>> origin/main
                 ]
             },
             "mural": {
