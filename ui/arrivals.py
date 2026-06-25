@@ -9,6 +9,8 @@ def arrivals_page():
     st.header("📦 Arrivage de Chine")
     
     st.info(f"💰 Taux de change: 1 USD = {USD_TO_MAD_RATE} MAD")
+    st.caption(f"ℹ️ Catalogue chargé : {len(get_all_references())} produits référencés")
+
     
     # Informations générales
     col1, col2 = st.columns(2)
