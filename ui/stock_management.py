@@ -249,6 +249,7 @@ def stock_management_page():
                     
                     st.divider()
                     if st.button("➕ Enregistrer un arrivage", type="primary", use_container_width=True):
-                        st.switch_page("arrivals") # Assure-toi que cette page existe dans ton architecture
+                        st.session_state.navigation = "📦 Arrivage Chine"
+                        st.rerun()
                 else:
                     st.caption("Le stock est à des niveaux sains.")

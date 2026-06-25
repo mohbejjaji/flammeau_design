@@ -45,6 +45,24 @@ try:
 except FileNotFoundError:
     pass
 
+# Navigation par défaut dans la session
+menu_options = [
+    "📊 Dashboard",
+    "💰 Charges",
+    "📦 Arrivage Chine",
+    "📊 Gestion Stock",
+    "💰 Gestion des Prix",
+    "🔥 Vente Cheminées",
+    "🪵 Vente Accessoires",
+    "🔧 Vente Prestations",
+    "📜 Historique Ventes",
+    "📄 Devis",
+    "📈 Analytics"
+]
+
+if "navigation" not in st.session_state:
+    st.session_state.navigation = "📊 Dashboard"
+
 # ✅ 2. Construction de la Sidebar dans le bon ordre
 with st.sidebar:
     # Haut de la sidebar : Logo
@@ -56,22 +74,19 @@ with st.sidebar:
     st.markdown("---")
     
     # Milieu de la sidebar : Menu
+    default_index = 0
+    if st.session_state.navigation in menu_options:
+        default_index = menu_options.index(st.session_state.navigation)
+        
     menu = st.radio(
         "Navigation",
-        [
-            "📊 Dashboard",
-            "💰 Charges",
-            "📦 Arrivage Chine",
-            "📊 Gestion Stock",
-            "💰 Gestion des Prix",
-            "🔥 Vente Cheminées",
-            "🪵 Vente Accessoires",
-            "🔧 Vente Prestations",
-            "📜 Historique Ventes",
-            "📄 Devis",
-            "📈 Analytics"
-        ]
+        menu_options,
+        index=default_index,
+        key="navigation_radio"
     )
+    
+    # Mettre à jour la session
+    st.session_state.navigation = menu
     
     # ASTUCE : Pour vraiment pousser les infos tout en bas, on peut ajouter un espacement flexible
     st.markdown('<div style="flex-grow: 1;"></div>', unsafe_allow_html=True)
