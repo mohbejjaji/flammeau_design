@@ -243,14 +243,18 @@ def liste_ventes_ui():
                 for item in details['items']:
                     st.write(f"  • {item['name']} x{item['quantity']} = {item['total']:,.0f} MAD")
                 
-                # Totaux
+                # Totaux (prix unitaire = TTC, donc sale.total_revenue est TTC)
+                total_ttc = details['total_revenue']
+                total_ht = total_ttc / 1.20 if total_ttc else 0
+                tva = total_ttc - total_ht if total_ttc else 0
+                
                 col_t1, col_t2, col_t3 = st.columns(3)
                 with col_t1:
-                    st.info(f"**Total HT:** {details['total_revenue']:,.0f} MAD")
+                    st.info(f"**Total HT:** {total_ht:,.0f} MAD")
                 with col_t2:
-                    st.info(f"**TVA:** {details['total_revenue'] * 0.20:,.0f} MAD")
+                    st.info(f"**TVA:** {tva:,.0f} MAD")
                 with col_t3:
-                    st.success(f"**Total TTC:** {details['total_revenue'] * 1.20:,.0f} MAD")
+                    st.success(f"**Total TTC:** {total_ttc:,.0f} MAD")
                 
                 # Bouton ticket
                 if st.button("🧾 Télécharger ticket", key=f"ticket_{sale['id']}"):
