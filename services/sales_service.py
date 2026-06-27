@@ -2,6 +2,7 @@ from core.database import SessionLocal
 from core.models import Sale, SaleItem, Product, SaleService
 from services.shipment_service import get_stock_lots_by_product
 from datetime import date
+from services.stock_service import recalculate_product_stock
 
 
 def create_product_sale(customer_name, items, seller_name="Moi", commission=0, 
@@ -89,6 +90,10 @@ def create_product_sale(customer_name, items, seller_name="Moi", commission=0,
             
             # Mettre à jour le stock total du produit
             product.stock_quantity -= item["quantity"]
+        
+        # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots (FIFO) 
+        # (garantit la synchro avec StockLot.quantity_remaining)
+        recalculate_product_stock(db)
         
         # Mettre à jour la vente
         sale.total_revenue = total_revenue

@@ -1,5 +1,6 @@
 from core.database import SessionLocal
 from core.models import Shipment, StockLot, Product, ShipmentItem
+from services.stock_service import recalculate_product_stock
 from datetime import date
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -80,6 +81,9 @@ def create_shipment(items, transport_total, customs_total=0, note=""):
         
         db.commit()
         
+        # ✅ Alignement stock: recalcul global après création de l'arrivage
+        recalculate_product_stock(db)
+
         # Retourner l'ID et les informations essentielles
         return {
             "id": shipment.id,

@@ -4,6 +4,31 @@ from sqlalchemy import func
 from datetime import datetime, timedelta  # ✅ Import manquant
 
 
+def recalculate_product_stock(db, product_id=None):
+    """
+    Recale Product.stock_quantity à partir des lots (StockLot.quantity_remaining).
+    - product_id: si fourni, recalcule uniquement ce produit
+    - sinon: recalcule tous les produits
+    """
+    if product_id is not None:
+        product_ids = [product_id]
+    else:
+        product_ids = [p.id for p in db.query(Product.id).all()]
+
+    for pid in product_ids:
+        total_qty = (
+            db.query(func.coalesce(func.sum(StockLot.quantity_remaining), 0))
+            .filter(StockLot.product_id == pid)
+            .scalar()
+        ) or 0
+
+        product = db.query(Product).filter(Product.id == pid).first()
+        if product:
+            product.stock_quantity = int(total_qty)
+
+    db.commit()
+
+
 def get_current_stock():
     """Récupère l'état actuel du stock pour tous les produits"""
     db = SessionLocal()
@@ -179,6 +204,10 @@ def transfer_stock(product_id, from_lot_id, to_lot_id, quantity):
     to_lot.quantity_remaining += quantity
     
     db.commit()
+    
+    # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots
+    recalculate_product_stock(db, product_id)
+    
     db.close()
     
     return True

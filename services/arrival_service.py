@@ -3,6 +3,7 @@ from core.models import Shipment, StockLot, Product, ShipmentItem
 from datetime import date
 from data.product_catalog import get_product_by_ref
 from config import USD_TO_MAD_RATE
+from services.stock_service import recalculate_product_stock
 
 
 def process_arrival(arrival_data):
@@ -140,6 +141,14 @@ def process_arrival(arrival_data):
                 product.selling_price = round(suggested_price, -2)  # Arrondi à la centaine
         
         db.commit()
+        
+        # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots
+        # (au moins pour les produits touchés)
+        for item in arrival_data['items']:
+            product = db.query(Product).filter(Product.reference == item['reference']).first()
+            if product:
+                recalculate_product_stock(db, product.id)
+            # si product n'existe pas, recalc ne sert à rien
         
         # Calculer les totaux pour le retour
         total_usd = sum(item['purchase_price_usd'] * item['quantity'] for item in arrival_data['items'])
@@ -371,6 +380,9 @@ def add_item_to_existing_shipment(shipment_id, reference, quantity, purchase_pri
             
         db.commit()
         
+        # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots
+        recalculate_product_stock(db, product.id)
+        
         # Recalculer les coûts
         recalculate_shipment_costs(db, shipment)
         
@@ -432,6 +444,9 @@ def update_existing_shipment_item(shipment_id, product_id, new_quantity, new_pur
         
         db.commit()
         
+        # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots
+        recalculate_product_stock(db, product.id)
+        
         recalculate_shipment_costs(db, shipment)
         db.commit()
         return True
@@ -475,13 +490,12 @@ def delete_item_from_existing_shipment(shipment_id, product_id):
         if qty_sold > 0:
             raise Exception(f"Action impossible : {qty_sold} unités de ce lot ont déjà été vendues.")
             
-        product.stock_quantity -= shipment_item.quantity
-        if product.stock_quantity < 0:
-            product.stock_quantity = 0
-            
         db.delete(shipment_item)
         db.delete(stock_lot)
         db.commit()
+        
+        # ✅ Alignement stock: recalcul Product.stock_quantity à partir des lots
+        recalculate_product_stock(db, product_id)
         
         recalculate_shipment_costs(db, shipment)
         db.commit()
@@ -516,13 +530,8 @@ def delete_entire_shipment(shipment_id):
                     prod_name = product.name if product else f"Produit #{item.product_id}"
                     raise Exception(f"Action impossible : {qty_sold} unités du produit '{prod_name}' ont déjà été vendues.")
                     
-        # Suppression
+        # Suppression (stock recalculé ensuite via StockLot)
         for item in items:
-            product = db.query(Product).filter(Product.id == item.product_id).first()
-            if product:
-                product.stock_quantity -= item.quantity
-                if product.stock_quantity < 0:
-                    product.stock_quantity = 0
             db.delete(item)
             
         stock_lots = db.query(StockLot).filter(StockLot.shipment_id == shipment_id).all()
@@ -531,6 +540,10 @@ def delete_entire_shipment(shipment_id):
             
         db.delete(shipment)
         db.commit()
+        
+        # ✅ Alignement stock: recalcul global après suppression
+        recalculate_product_stock(db)
+        
         return True
     except Exception as e:
         db.rollback()

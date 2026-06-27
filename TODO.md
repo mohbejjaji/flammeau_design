@@ -1,0 +1,7 @@
+- [ ] Ajouter `recalculate_product_stock()` dans `services/stock_service.py`
+- [ ] Appeler le recalcul après mutation dans `services/arrival_service.py`
+- [ ] Appeler le recalcul après mutation dans `services/shipment_service.py`
+- [ ] Appeler le recalcul après mutation dans `services/sales_service.py`
+- [ ] Appeler le recalcul dans `services/stock_service.py` pour `transfer_stock()`
+- [ ] Tester scénario: arrivage FD 001 ELT ENCASTRE (10) puis vérifier cohérence menus (arrivage/gestion stock/vente cheminée)
+- [ ] Corriger si un autre chemin de modification de stock existe
