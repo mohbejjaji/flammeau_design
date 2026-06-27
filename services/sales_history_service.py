@@ -152,10 +152,8 @@ def export_sales_to_excel(start_date=None, end_date=None):
             'Vendeur': sale['seller'],
             'Paiement': sale['payment'],
             'Articles': sale['items_count'],
-            # unit_price = TTC => sale.revenue est déjà TTC
-            'CA TTC': sale['revenue'],
-            'CA HT': sale['revenue'] / 1.20 if sale['revenue'] else 0,
-            'TVA': (sale['revenue'] - (sale['revenue'] / 1.20 if sale['revenue'] else 0)) if sale['revenue'] else 0,
+            # Prix saisi = TTC, donc on retire toute logique TVA de l'export
+            'CA': sale['revenue'],
             'Coût': sale['cost'],
             'Bénéfice': sale['profit'],
             'Marge %': (sale['profit'] / sale['revenue'] * 100) if sale['revenue'] > 0 else 0,
@@ -277,8 +275,7 @@ def generate_ticket_pdf(sale_id):
         elements.append(table)
     
     elements.append(Spacer(1, 0.5*cm))
-    # unit_price = TTC => sale.total_revenue est déjà TTC
-    elements.append(Paragraph(f"Total TTC: {sale.total_revenue:.0f} MAD", styles['Heading3']))
+    elements.append(Paragraph(f"Total: {sale.total_revenue:.0f} MAD", styles['Heading3']))
     
     doc.build(elements)
     db.close()
