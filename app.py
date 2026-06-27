@@ -25,13 +25,14 @@ if not check_authentication():
 # Initialisation de la base de données
 Base.metadata.create_all(bind=engine)
 
-# ✅ Alignement stock global (corrige les divergences historiques Product.stock_quantity vs StockLot.quantity_remaining)
-# Recalcule une fois au démarrage de l'app depuis les lots.
-try:
-    recalculate_product_stock()
-except Exception:
-    # Ne pas casser le démarrage de l'app si la base n'est pas prête.
-    pass
+# ✅ Alignement stock global désactivé.
+# Raison : si les lots historiques (StockLot.quantity_remaining) n'ont pas été décrémentés lors des ventes passées,
+# un recalcul depuis les lots peut "annuler" l'effet des ventes et fausser le stock réel affiché dans :
+# - Gestion Stock
+# - Vente Cheminées
+#
+# Le stock reste donc piloté par Product.stock_quantity, et les recalculs après opérations continuent d'être
+# exécutés dans les services (arrivages/ventes/transferts).
 
 # Import des pages (après authentification)
 from ui.dashboard import dashboard_page
