@@ -4,29 +4,39 @@ from sqlalchemy import func
 from datetime import datetime, timedelta  # ✅ Import manquant
 
 
-def recalculate_product_stock(db, product_id=None):
+def recalculate_product_stock(db=None, product_id=None):
     """
-    Recale Product.stock_quantity à partir des lots (StockLot.quantity_remaining).
+    Recalcule Product.stock_quantity à partir des lots (StockLot.quantity_remaining).
+
+    - db: session SQLAlchemy (optionnel). Si None, une session est créée.
     - product_id: si fourni, recalcule uniquement ce produit
     - sinon: recalcule tous les produits
     """
-    if product_id is not None:
-        product_ids = [product_id]
-    else:
-        product_ids = [p.id for p in db.query(Product.id).all()]
+    external_session = db is not None
+    if db is None:
+        db = SessionLocal()
 
-    for pid in product_ids:
-        total_qty = (
-            db.query(func.coalesce(func.sum(StockLot.quantity_remaining), 0))
-            .filter(StockLot.product_id == pid)
-            .scalar()
-        ) or 0
+    try:
+        if product_id is not None:
+            product_ids = [product_id]
+        else:
+            product_ids = [p.id for p in db.query(Product.id).all()]
 
-        product = db.query(Product).filter(Product.id == pid).first()
-        if product:
-            product.stock_quantity = int(total_qty)
+        for pid in product_ids:
+            total_qty = (
+                db.query(func.coalesce(func.sum(StockLot.quantity_remaining), 0))
+                .filter(StockLot.product_id == pid)
+                .scalar()
+            ) or 0
 
-    db.commit()
+            product = db.query(Product).filter(Product.id == pid).first()
+            if product:
+                product.stock_quantity = int(total_qty)
+
+        db.commit()
+    finally:
+        if not external_session:
+            db.close()
 
 
 def get_current_stock():

@@ -8,6 +8,7 @@ import core.models
 
 # ✅ Import de la vérification ET de la nouvelle fonction d'affichage
 from auth.auth import check_authentication, render_user_profile 
+from services.stock_service import recalculate_product_stock
 
 # Configuration de la page
 st.set_page_config(
@@ -23,6 +24,14 @@ if not check_authentication():
 
 # Initialisation de la base de données
 Base.metadata.create_all(bind=engine)
+
+# ✅ Alignement stock global (corrige les divergences historiques Product.stock_quantity vs StockLot.quantity_remaining)
+# Recalcule une fois au démarrage de l'app depuis les lots.
+try:
+    recalculate_product_stock()
+except Exception:
+    # Ne pas casser le démarrage de l'app si la base n'est pas prête.
+    pass
 
 # Import des pages (après authentification)
 from ui.dashboard import dashboard_page
