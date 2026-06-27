@@ -23,3 +23,8 @@ build/
 temp/
 *.spec
 
+# Python cache
+__pycache__/
+*.pyc
+core/__pycache__/
+
